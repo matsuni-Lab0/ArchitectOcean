@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Project AO 前庭仕様 v1.1 - HTML試作</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#101a2d; --panel2:#0f1730; --text:#e7eefc; --muted:#a8b6d6;
+      --line:#253457; --accent:#6aa7ff; --good:#7dffb2; --bad:#ff7d7d; --warn:#ffd37d;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, #12234a 0%, var(--bg) 55%, #070b14 100%);
+      color:var(--text);
+    }
+    .wrap{max-width:1100px; margin:0 auto; padding:16px;}
+    .top{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:stretch;
+    }
+    .card{
+      background: rgba(16,26,45,.92);
+      border:1px solid rgba(37,52,87,.85);
+      border-radius:14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .hud{flex:1 1 420px; padding:14px 14px 12px;}
+    .hud h1{margin:0 0 10px; font-size:16px; letter-spacing:.3px; color:#d9e6ff;}
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .pill{
+      padding:8px 10px; border:1px solid rgba(37,52,87,.9);
+      border-radius:999px; background: rgba(15,23,48,.75);
+      color:var(--muted); font-size:12px;
+    }
+    .pill b{color:var(--text); font-weight:700}
+    .pill.good b{color:var(--good)}
+    .pill.bad b{color:var(--bad)}
+    .phase{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(37,52,87,.9);
+      background: rgba(8,12,24,.55);
+    }
+    .phaseTitle{display:flex; justify-content:space-between; align-items:center; gap:10px}
+    .phaseTitle .name{font-weight:800; letter-spacing:.4px}
+    .phaseTitle .timer{font-variant-numeric: tabular-nums; color:var(--warn); font-weight:800}
+    .sub{margin-top:6px; color:var(--muted); font-size:12px}
+
+    .main{display:grid; grid-template-columns: 1fr 380px; gap:12px; margin-top:12px;}
+    @media (max-width: 980px){
+      .main{grid-template-columns: 1fr;}
+    }
+
+    .boardCard{padding:14px;}
+    .boardTop{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;}
+    .legend{color:var(--muted); font-size:12px; line-height:1.5}
+    .legend b{color:var(--text)}
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:8px;
+      user-select:none;
+    }
+    .cell{
+      aspect-ratio: 1 / 1;
+      border-radius:12px;
+      border:1px solid rgba(37,52,87,.95);
+      background: linear-gradient(180deg, rgba(15,23,48,.85), rgba(9,14,29,.85));
+      display:flex; align-items:center; justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .cell::after{
+      content:"";
+      position:absolute; inset:-40%;
+      background: radial-gradient(circle at 30% 30%, rgba(106,167,255,.14) 0%, rgba(106,167,255,0) 55%);
+      transform: rotate(10deg);
+      pointer-events:none;
+    }
+    .marker{
+      position:absolute; left:8px; top:8px;
+      font-size:11px; color:rgba(231,238,252,.92);
+      padding:3px 7px; border-radius:999px;
+      border:1px solid rgba(231,238,252,.18);
+      background: rgba(0,0,0,.18);
+    }
+    .marker.good{color:#0a2a18; background: rgba(125,255,178,.85); border-color: rgba(125,255,178,.25);}
+    .marker.bad{color:#2a0a0a; background: rgba(255,125,125,.85); border-color: rgba(255,125,125,.25);}
+    .ship{
+      width:100%; height:100%;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:900; letter-spacing:.5px;
+      font-size:18px;
+      text-shadow: 0 2px 10px rgba(0,0,0,.35);
+    }
+    .ship .tag{
+      position:absolute; right:8px; bottom:8px;
+      font-size:10px; padding:2px 6px; border-radius:999px;
+      border:1px solid rgba(231,238,252,.18);
+      background: rgba(0,0,0,.18);
+      color:rgba(231,238,252,.9);
+      font-weight:800;
+    }
+    .pShip{color:#d8ebff;}
+    .eShip{color:#ffd9f2;}
+    .hintSel{
+      outline:2px solid rgba(106,167,255,.55);
+      box-shadow: 0 0 0 4px rgba(106,167,255,.12);
+    }
+
+    .side{padding:14px;}
+    .side h2{margin:0 0 10px; font-size:14px; color:#d9e6ff;}
+    .btnRow{display:flex; gap:10px; flex-wrap:wrap;}
+    button{
+      border:1px solid rgba(37,52,87,.9);
+      background: rgba(15,23,48,.85);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:800;
+      cursor:pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{border-color: rgba(106,167,255,.75); background: rgba(20,32,66,.92)}
+    button:active{transform: translateY(1px)}
+    button:disabled{
+      opacity:.45; cursor:not-allowed;
+      border-color: rgba(37,52,87,.65); background: rgba(15,23,48,.55);
+    }
+    .btnPrimary{border-color: rgba(106,167,255,.85);}
+    .btnDanger{border-color: rgba(255,125,125,.85);}
+    .btnGood{border-color: rgba(125,255,178,.85);}
+
+    .panel{
+      margin-top:12px;
+      border:1px solid rgba(37,52,87,.9);
+      border-radius:14px;
+      background: rgba(8,12,24,.45);
+      padding:12px;
+    }
+    .panelTitle{display:flex; justify-content:space-between; align-items:center; gap:10px;}
+    .panelTitle .t{font-weight:900}
+    .small{font-size:12px; color:var(--muted)}
+    .hand{
+      display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;
+    }
+    .cardItem{
+      border:1px solid rgba(37,52,87,.9);
+      background: rgba(15,23,48,.85);
+      border-radius:12px;
+      padding:10px 10px 8px;
+      min-width:160px;
+      cursor:pointer;
+    }
+    .cardItem:hover{border-color: rgba(106,167,255,.75)}
+    .cardItem.sel{outline:2px solid rgba(106,167,255,.75); box-shadow: 0 0 0 4px rgba(106,167,255,.12);}
+    .cardName{font-weight:900; font-size:13px}
+    .cardDesc{color:var(--muted); font-size:11px; margin-top:4px; line-height:1.35}
+    .cardNum{margin-top:8px; font-size:11px; color:rgba(231,238,252,.92)}
+    .hr{height:1px; background: rgba(37,52,87,.85); margin:10px 0}
+    .log{
+      max-height:260px; overflow:auto;
+      border:1px solid rgba(37,52,87,.85);
+      border-radius:12px;
+      background: rgba(0,0,0,.18);
+      padding:10px;
+      font-size:12px;
+      line-height:1.45;
+      color:rgba(231,238,252,.92);
+    }
+    .log p{margin:0 0 8px}
+    .log p:last-child{margin-bottom:0}
+    .tagGood{color: var(--good); font-weight:900}
+    .tagBad{color: var(--bad); font-weight:900}
+    .tagWarn{color: var(--warn); font-weight:900}
+
+    .modalBack{
+      position:fixed; inset:0; background: rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center;
+      padding:16px;
+    }
+    .modal{
+      width:min(720px, 100%);
+      background: rgba(16,26,45,.95);
+      border:1px solid rgba(37,52,87,.95);
+      border-radius:16px;
+      padding:14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+    .modalHead{display:flex; justify-content:space-between; align-items:center; gap:12px;}
+    .modalHead .t{font-weight:900}
+    .modalHead .x{background:transparent; border:1px solid rgba(37,52,87,.9); padding:8px 10px; border-radius:12px;}
+    .formGrid{
+      display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px;
+    }
+    @media (max-width: 620px){
+      .formGrid{grid-template-columns: 1fr}
+    }
+    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+    select{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(37,52,87,.9);
+      background: rgba(8,12,24,.55);
+      color:var(--text);
+      font-weight:800;
+      outline:none;
+    }
+    .modalFoot{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:12px;}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="card hud">
+        <h1>Project AO：前庭仕様 v1.1（HTML試作）</h1>
+        <div class="row">
+          <div class="pill good">あなた：<b id="pPts">1000</b>pt</div>
+          <div class="pill bad">相手：<b id="ePts">1000</b>pt</div>
+          <div class="pill">ターン：<b id="turn">1</b>/20</div>
+          <div class="pill">状態：<b id="state">準備中</b></div>
+        </div>
+
+        <div class="phase">
+          <div class="phaseTitle">
+            <div class="name" id="phaseName">—</div>
+            <div class="timer" id="timer">—</div>
+          </div>
+          <div class="sub" id="phaseSub">船を動かして、相手のポイントを0にしたら勝ち。</div>
+        </div>
+      </div>
+
+      <div class="card hud" style="flex:1 1 320px;">
+        <h1>操作</h1>
+        <div class="row">
+          <div class="pill">介入：<b>3秒</b></div>
+          <div class="pill">規定ターン：<b>20</b></div>
+          <div class="pill">特殊マス：宝（+100）/ 渦潮（-100）</div>
+        </div>
+        <div class="sub" style="margin-top:10px;">
+          介入画面のサブテキスト：<span style="color:var(--muted)">3秒で選んで。何もしなくても船は動く。</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="card boardCard">
+        <div class="boardTop">
+          <div>
+            <div style="font-weight:900; margin-bottom:4px;">5×5 海図</div>
+            <div class="legend">
+              船：<b>戦艦(B)</b> / <b>快速船(C)</b> / <b>護衛艦(F)</b><br/>
+              相性：戦艦(B) ＞ 快速船(C) ＞ 護衛艦(F) ＞ 戦艦(B)<br/>
+              到達：相手陣地に入ると <b>相手−100pt</b>（船は消える）
+            </div>
+          </div>
+          <div class="legend">
+            表示：<b>あなた</b>＝青系 / <b>相手</b>＝桃系<br/>
+            同じマス競合：<b>後の船は移動キャンセル</b><br/>
+            自軍同士の同マス：<b>不可</b>
+          </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <div class="hr"></div>
+        <div class="small">ログ</div>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div class="card side">
+        <h2>介入する？</h2>
+        <div class="btnRow">
+          <button id="btnCard" class="btnPrimary">カードを使う</button>
+          <button id="btnSkip">スキップ</button>
+          <button id="btnRole" class="btnGood">役を出す</button>
+          <button id="btnNext" class="btnPrimary" disabled>進行</button>
+          <button id="btnReset" class="btnDanger">リセット</button>
+        </div>
+
+        <div class="panel">
+          <div class="panelTitle">
+            <div class="t">手札（常に5枚）</div>
+            <div class="small">ターン終了時に1枚補充（カード使用時のみ）</div>
+          </div>
+          <div class="hand" id="hand"></div>
+          <div class="small" style="margin-top:8px;">
+            役（コンボ）：<b>同じ数字3枚</b>で成立。成立すると相手−100pt（3枚消費）。
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panelTitle">
+            <div class="t">ヘルプ</div>
+          </div>
+          <div class="small" style="margin-top:8px; line-height:1.55;">
+            ・カード使用：指定した船に効果（今ターンのみ）<br/>
+            ・スキップ：効果なし（船は通常通り動く）<br/>
+            ・3秒で選ばない：自動でスキップ（効果なし）<br/>
+            ・宝：通ると＋100ポイント / 渦潮：通ると−100ポイント
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal -->
+  <div class="modalBack" id="modalBack">
+    <div class="modal">
+      <div class="modalHead">
+        <div class="t" id="modalTitle">カードを使う</div>
+        <button class="x" id="modalClose">閉じる</button>
+      </div>
+
+      <div class="formGrid">
+        <div>
+          <label>カードを選ぶ</label>
+          <select id="selCard"></select>
+        </div>
+        <div>
+          <label>対象の船（あなたの船）</label>
+          <select id="selShip"></select>
+        </div>
+        <div id="dirWrap" style="display:none;">
+          <label>方向（移動方向固定）</label>
+          <select id="selDir">
+            <option value="F">前</option>
+            <option value="L">左</option>
+            <option value="R">右</option>
+            <option value="DL">斜め左前</option>
+            <option value="DR">斜め右前</option>
+          </select>
+        </div>
+        <div id="noteWrap">
+          <label>説明</label>
+          <div class="small" id="cardNote" style="padding:10px; border:1px solid rgba(37,52,87,.85); border-radius:12px; background: rgba(0,0,0,.18);">
+            —
+          </div>
+        </div>
+      </div>
+
+      <div class="modalFoot">
+        <button id="modalApply" class="btnPrimary">このカードで確定</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  /**********************
+   * 前庭仕様 v1.1（確定）
+   **********************/
+  const MAX_TURNS = 20;
+
+  // 表示文言（ドリス反映）
+  const TEXT = {
+    phase: {
+      intervene: "介入する？",
+      pMove: "あなたの船が動く",
+      eMove: "相手の船が動く",
+      points: "ポイント更新中",
+      end: "結果"
+    },
+    sub: {
+      start: "船を動かして、相手のポイントを0にしたら勝ち。",
+      intervene: "3秒で選んで。何もしなくても船は動く。",
+      pMove: "あなたの船が動く。",
+      eMove: "相手の船が動く。",
+      points: "ポイントを更新中。",
+    },
+    battle: {
+      win: "あなたの船が勝利。相手の船が消えた。",
+      lose: "あなたの船が敗北。この船は消えた。",
+      draw: "両方の船が消えた。"
+    },
+    special: {
+      treasure: "通ると＋100ポイント",
+      whirl: "通ると−100ポイント"
+    },
+    result: {
+      win0: "勝利。相手のポイントが0になった。",
+      lose0: "敗北。あなたのポイントが0になった。",
+      time: "時間切れ。ポイントが高い方の勝ち。"
+    }
+  };
+
+  // 盤面
+  const SIZE = 5;
+  // 特殊マス固定（前庭仕様）
+  const TREASURES = new Set(["1,1", "1,3"]); // 宝
+  const WHIRLS    = new Set(["3,1", "3,3"]); // 渦潮
+
+  // 船タイプ
+  const SHIP = {
+    B: { name:"戦艦",  code:"B" }, // battleship
+    C: { name:"快速船", code:"C" }, // clipper
+    F: { name:"護衛艦", code:"F" }, // frigate
+  };
+
+  // 三すくみ（勝敗：A vs B）
+  // return 1 win, 0 draw, -1 lose
+  function rps(a,b){
+    if(a === b) return 0;
+    if(a==="B" && b==="C") return 1;
+    if(a==="C" && b==="F") return 1;
+    if(a==="F" && b==="B") return 1;
+    return -1;
+  }
+
+  // 逆転（指定1隻・次の1戦闘のみ）
+  function battleOutcome(aType, bType, aRev, bRev){
+    let base = rps(aType, bType);
+    if(base === 0) return 0;
+    // 片側だけ逆転なら勝敗反転。両方なら相殺（通常）
+    if(!!aRev ^ !!bRev) base = -base;
+    return base;
+  }
+
+  // カード（効果3種）＋ 数字（役用）
+  const CARD_TYPES = [
+    { key:"DIR",  name:"移動方向固定", desc:"指定した船の移動先を決める（今ターンのみ）" },
+    { key:"PLUS", name:"移動距離+1",   desc:"指定した船を1マス余分に進める（今ターンのみ）" },
+    { key:"REV",  name:"三すくみ逆転", desc:"指定した船の次の1戦闘のみ、勝ち負けが逆になる" },
+  ];
+
+  // 役（同じ数字3枚）で相手−100（3枚消費）
+  const ROLE_DAMAGE = 100;
+
+  /**********************
+   * 状態
+   **********************/
+  let state = null;
+
+  function initState(){
+    const pShips = [];
+    const eShips = [];
+
+    // 初期配置：下段にあなた5隻 / 上段に相手5隻（簡略）
+    // タイプは固定でも良いが、試作として混ぜる
+    const pTypes = ["B","C","F","C","B"];
+    const eTypes = ["F","C","B","C","F"];
+
+    for(let x=0;x<SIZE;x++){
+      pShips.push(makeShip("P", pTypes[x], x, SIZE-1));
+      eShips.push(makeShip("E", eTypes[x], x, 0));
+    }
+
+    state = {
+      turn: 1,
+      phase: "READY",
+      pPts: 1000,
+      ePts: 1000,
+      pShips,
+      eShips,
+      // 介入（今ターンのみ）
+      effect: {
+        usedCardThisTurn: false,
+        chosen: null, // {cardIdx, shipId, dir?}
+        // shipId -> { fixedDir?, plusMove?, revNext? } (all cleared each turn)
+        shipBuff: new Map(),
+      },
+      // 手札：常に5枚
+      hand: [],
+      // ログ
+      log: [],
+      // 介入タイマー
+      timer: { left: 0, tick: null, locked: false },
+      // 終了
+      ended: false,
+      winner: null, // "P"/"E"/"TIE"
+    };
+
+    // 初期手札を5枚
+    while(state.hand.length < 5) state.hand.push(drawCard());
+
+    renderAll();
+    setPhase("INTERVENE");
+    startInterveneTimer();
+    logMsg(TEXT.sub.start);
+  }
+
+  function makeShip(owner, type, x, y){
+    return {
+      id: owner + "_" + Math.random().toString(36).slice(2,9),
+      owner, type,
+      x,y,
+      alive:true,
+    };
+  }
+
+  function drawCard(){
+    // 数字：1〜6
+    const num = 1 + Math.floor(Math.random()*6);
+    // 効果：3種からランダム
+    const t = CARD_TYPES[Math.floor(Math.random()*CARD_TYPES.length)];
+    return {
+      id: "C_" + Math.random().toString(36).slice(2,9),
+      typeKey: t.key,
+      name: t.name,
+      desc: t.desc,
+      num
+    };
+  }
+
+  /**********************
+   * UI要素
+   **********************/
+  const el = (id) => document.getElementById(id);
+
+  const gridEl = el("grid");
+  const handEl = el("hand");
+  const logEl = el("log");
+
+  const pPtsEl = el("pPts");
+  const ePtsEl = el("ePts");
+  const turnEl = el("turn");
+  const stateEl = el("state");
+
+  const phaseNameEl = el("phaseName");
+  const phaseSubEl  = el("phaseSub");
+  const timerEl     = el("timer");
+
+  const btnCard  = el("btnCard");
+  const btnSkip  = el("btnSkip");
+  const btnRole  = el("btnRole");
+  const btnNext  = el("btnNext");
+  const btnReset = el("btnReset");
+
+  // modal
+  const modalBack  = el("modalBack");
+  const modalClose = el("modalClose");
+  const modalApply = el("modalApply");
+  const modalTitle = el("modalTitle");
+  const selCard = el("selCard");
+  const selShip = el("selShip");
+  const selDir  = el("selDir");
+  const dirWrap = el("dirWrap");
+  const cardNote = el("cardNote");
+
+  /**********************
+   * 盤面レンダリング
+   **********************/
+  function renderGrid(){
+    gridEl.innerHTML = "";
+    for(let y=0;y<SIZE;y++){
+      for(let x=0;x<SIZE;x++){
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+
+        const key = `${x},${y}`;
+        if(TREASURES.has(key)){
+          const m = document.createElement("div");
+          m.className = "marker good";
+          m.textContent = "+100";
+          cell.appendChild(m);
+        }else if(WHIRLS.has(key)){
+          const m = document.createElement("div");
+          m.className = "marker bad";
+          m.textContent = "-100";
+          cell.appendChild(m);
+        }else{
+          const m = document.createElement("div");
+          m.className = "marker";
+          m.textContent = (y===0 ? "相手陣地" : (y===SIZE-1 ? "自陣地" : ""));
+          m.style.opacity = (m.textContent ? "0.65" : "0");
+          cell.appendChild(m);
+        }
+
+        // 船表示（同マスは前庭仕様では発生させない＝不可）
+        const pShip = state.pShips.find(s => s.alive && s.x===x && s.y===y);
+        const eShip = state.eShips.find(s => s.alive && s.x===x && s.y===y);
+
+        if(pShip || eShip){
+          const shipEl = document.createElement("div");
+          shipEl.className = "ship " + (pShip ? "pShip" : "eShip");
+          const ship = pShip || eShip;
+
+          shipEl.textContent = ship.type; // B/C/F
+          const tag = document.createElement("div");
+          tag.className = "tag";
+          tag.textContent = (ship.owner==="P" ? "あなた" : "相手");
+          shipEl.appendChild(tag);
+
+          cell.appendChild(shipEl);
+        }
+
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  function renderHand(){
+    handEl.innerHTML = "";
+    state.hand.forEach((c, idx) => {
+      const d = document.createElement("div");
+      d.className = "cardItem";
+      d.innerHTML = `
+        <div class="cardName">${c.name}</div>
+        <div class="cardDesc">${c.desc}</div>
+        <div class="cardNum">数字：<b>${c.num}</b></div>
+      `;
+      handEl.appendChild(d);
+    });
+
+    // 役ボタン有効/無効
+    btnRole.disabled = !hasTriple();
+  }
+
+  function renderLog(){
+    logEl.innerHTML = "";
+    state.log.slice(-80).forEach(line => {
+      const p = document.createElement("p");
+      p.innerHTML = line;
+      logEl.appendChild(p);
+    });
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function renderHud(){
+    pPtsEl.textContent = state.pPts;
+    ePtsEl.textContent = state.ePts;
+    turnEl.textContent = state.turn;
+    stateEl.textContent = state.ended ? "終了" : "進行中";
+  }
+
+  function renderAll(){
+    renderHud();
+    renderGrid();
+    renderHand();
+    renderLog();
+  }
+
+  /**********************
+   * ログ
+   **********************/
+  function logMsg(msg){
+    const safe = msg
+      .replaceAll("<","&lt;").replaceAll(">","&gt;");
+    state.log.push(safe);
+    renderLog();
+  }
+
+  function logTag(msg, cls){
+    const safe = msg.replaceAll("<","&lt;").replaceAll(">","&gt;");
+    state.log.push(`<span class="${cls}">${safe}</span>`);
+    renderLog();
+  }
+
+  /**********************
+   * フェーズ管理
+   **********************/
+  function setPhase(p){
+    state.phase = p;
+    btnNext.disabled = true;
+
+    if(p==="INTERVENE"){
+      phaseNameEl.textContent = TEXT.phase.intervene;
+      phaseSubEl.textContent = TEXT.sub.intervene;
+      btnCard.disabled = false;
+      btnSkip.disabled = false;
+      btnRole.disabled = !hasTriple();
+      timerEl.textContent = "3";
+    }else if(p==="PMOVE"){
+      phaseNameEl.textContent = TEXT.phase.pMove;
+      phaseSubEl.textContent = TEXT.sub.pMove;
+      btnCard.disabled = true;
+      btnSkip.disabled = true;
+      btnRole.disabled = true;
+      timerEl.textContent = "—";
+      btnNext.disabled = false;
+    }else if(p==="EMOVE"){
+      phaseNameEl.textContent = TEXT.phase.eMove;
+      phaseSubEl.textContent = TEXT.sub.eMove;
+      btnCard.disabled = true;
+      btnSkip.disabled = true;
+      btnRole.disabled = true;
+      timerEl.textContent = "—";
+      btnNext.disabled = false;
+    }else if(p==="POINTS"){
+      phaseNameEl.textContent = TEXT.phase.points;
+      phaseSubEl.textContent = TEXT.sub.points;
+      btnCard.disabled = true;
+      btnSkip.disabled = true;
+      btnRole.disabled = true;
+      timerEl.textContent = "—";
+      btnNext.disabled = false;
+    }else if(p==="END"){
+      phaseNameEl.textContent = TEXT.phase.end;
+      phaseSubEl.textContent = "";
+      btnCard.disabled = true;
+      btnSkip.disabled = true;
+      btnRole.disabled = true;
+      timerEl.textContent = "—";
+      btnNext.disabled = true;
+    }
+    renderHud();
+  }
+
+  /**********************
+   * 介入タイマー（3秒）
+   **********************/
+  function startInterveneTimer(){
+    stopTimer();
+    state.timer.left = 3;
+    state.timer.locked = false;
+    timerEl.textContent = String(state.timer.left);
+
+    state.timer.tick = setInterval(() => {
+      if(state.ended) return;
+      if(state.phase !== "INTERVENE") return;
+      if(state.timer.locked) return;
+
+      state.timer.left -= 1;
+      timerEl.textContent = String(Math.max(0, state.timer.left));
+      if(state.timer.left <= 0){
+        // タイムアウト：自動スキップ（効果なし）
+        state.timer.locked = true;
+        logMsg("スキップ（自動）。");
+        proceedFromIntervene("SKIP");
+      }
+    }, 1000);
+  }
+
+  function stopTimer(){
+    if(state?.timer?.tick){
+      clearInterval(state.timer.tick);
+      state.timer.tick = null;
+    }
+  }
+
+  /**********************
+   * 役判定（同じ数字3枚）
+   **********************/
+  function hasTriple(){
+    const cnt = new Map();
+    for(const c of state.hand){
+      cnt.set(c.num, (cnt.get(c.num)||0) + 1);
+    }
+    for(const [num, n] of cnt.entries()){
+      if(n >= 3) return true;
+    }
+    return false;
+  }
+
+  function consumeTripleAndDamage(){
+    // 一番小さい数字のトリプルを優先（簡便）
+    const cnt = new Map();
+    for(const c of state.hand){
+      cnt.set(c.num, (cnt.get(c.num)||0) + 1);
+    }
+    const nums = [...cnt.keys()].sort((a,b)=>a-b);
+    let chosen = null;
+    for(const n of nums){
+      if(cnt.get(n) >= 3){ chosen = n; break; }
+    }
+    if(chosen == null) return false;
+
+    // 3枚消費
+    let removed = 0;
+    state.hand = state.hand.filter(c => {
+      if(c.num === chosen && removed < 3){
+        removed += 1;
+        return false;
+      }
+      return true;
+    });
+
+    // 相手に -100
+    state.ePts -= ROLE_DAMAGE;
+    logTag(`役を出す：数字${chosen}×3 → 相手のポイントが減った（−${ROLE_DAMAGE}）`, "tagGood");
+    return true;
+  }
+
+  /**********************
+   * 介入選択の処理
+   **********************/
+  function clearTurnEffects(){
+    state.effect.usedCardThisTurn = false;
+    state.effect.chosen = null;
+    state.effect.shipBuff = new Map();
+  }
+
+  function applyCardEffect(cardIdx, shipId, dir){
+    const card = state.hand[cardIdx];
+    if(!card) return false;
+
+    const buff = { fixedDir: null, plusMove: false, revNext: false };
+    if(card.typeKey === "DIR"){
+      buff.fixedDir = dir; // F/L/R/DL/DR
+    }else if(card.typeKey === "PLUS"){
+      buff.plusMove = true;
+    }else if(card.typeKey === "REV"){
+      buff.revNext = true;
+    }
+
+    state.effect.shipBuff.set(shipId, buff);
+
+    // 消費：このカード1枚を手札から取り除く
+    state.hand.splice(cardIdx, 1);
+    state.effect.usedCardThisTurn = true;
+
+    // 手札は「常に5枚」だが、前庭仕様では「ターン終了時に1枚補充（カード使用時のみ）」
+    // → ここでは補充しない（ターン末処理で補充）
+
+    logTag(`カードを使う：${card.name}（数字${card.num}）`, "tagWarn");
+    return true;
+  }
+
+  /**********************
+   * 移動ルール
+   **********************/
+  function inBounds(x,y){
+    return x>=0 && x<SIZE && y>=0 && y<SIZE;
+  }
+
+  function key(x,y){ return `${x},${y}`; }
+
+  function isOccupiedBy(owner, x,y){
+    const list = owner==="P" ? state.pShips : state.eShips;
+    return list.some(s => s.alive && s.x===x && s.y===y);
+  }
+
+  function isOccupiedByAny(x,y){
+    return isOccupiedBy("P",x,y) || isOccupiedBy("E",x,y);
+  }
+
+  function getShipAt(owner, x,y){
+    const list = owner==="P" ? state.pShips : state.eShips;
+    return list.find(s => s.alive && s.x===x && s.y===y) || null;
+  }
+
+  function getOppShipAt(owner, x,y){
+    const opp = owner==="P" ? "E" : "P";
+    return getShipAt(opp, x,y);
+  }
+
+  function forwardDir(owner){
+    // あなた：上へ（y-1）、相手：下へ（y+1）
+    return owner==="P" ? -1 : 1;
+  }
+
+  function candidatesForShip(ship, owner, aiTarget){
+    const dy = forwardDir(owner);
+
+    const cands = [];
+    if(ship.type === "B"){
+      cands.push({x: ship.x, y: ship.y + dy, code:"F"});
+    }else if(ship.type === "C"){
+      cands.push({x: ship.x - 1, y: ship.y + dy, code:"DL"});
+      cands.push({x: ship.x + 1, y: ship.y + dy, code:"DR"});
+    }else if(ship.type === "F"){
+      // 前・左・右（前優先は解決できないので、AIでは距離優先へ。プレイヤー側は前優先を基本）
+      cands.push({x: ship.x, y: ship.y + dy, code:"F"});
+      cands.push({x: ship.x - 1, y: ship.y, code:"L"});
+      cands.push({x: ship.x + 1, y: ship.y, code:"R"});
+    }
+
+    // 範囲内のみ
+    const inb = cands.filter(m => inBounds(m.x, m.y));
+    if(owner==="E" && aiTarget){
+      // 敵AI：最短距離優先（同率はランダム）
+      const dist = (m) => Math.abs(m.x - aiTarget.x) + Math.abs(m.y - aiTarget.y);
+      const scored = inb.map(m => ({m, d: dist(m)}));
+      scored.sort((a,b)=>a.d-b.d);
+      const bestD = scored.length ? scored[0].d : 999;
+      const best = scored.filter(s => s.d===bestD).map(s => s.m);
+      return best; // tieをランダムで取る
+    }
+
+    return inb;
+  }
+
+  function playerMoveChoice(ship){
+    // バフがある場合は優先
+    const buff = state.effect.shipBuff.get(ship.id);
+    const dy = forwardDir("P");
+
+    if(buff?.fixedDir){
+      const dir = buff.fixedDir;
+      if(dir==="F")  return {x: ship.x, y: ship.y + dy, code:"F"};
+      if(dir==="L")  return {x: ship.x - 1, y: ship.y, code:"L"};
+      if(dir==="R")  return {x: ship.x + 1, y: ship.y, code:"R"};
+      if(dir==="DL") return {x: ship.x - 1, y: ship.y + dy, code:"DL"};
+      if(dir==="DR") return {x: ship.x + 1, y: ship.y + dy, code:"DR"};
+    }
+
+    // 通常：タイプごとの既定
+    if(ship.type==="B"){
+      return {x: ship.x, y: ship.y + dy, code:"F"};
+    }
+    if(ship.type==="C"){
+      // 快速船：分岐がある場合ランダム（ただし表示は試作ではログで明示）
+      const opts = [
+        {x: ship.x - 1, y: ship.y + dy, code:"DL"},
+        {x: ship.x + 1, y: ship.y + dy, code:"DR"}
+      ].filter(m => inBounds(m.x,m.y));
+      if(opts.length<=1) return opts[0] || {x: ship.x, y: ship.y, code:"STAY"};
+      const pick = opts[Math.floor(Math.random()*opts.length)];
+      logMsg(`快速船：進路はランダム → ${pick.code==="DL" ? "斜め左前" : "斜め右前"}`);
+      return pick;
+    }
+    if(ship.type==="F"){
+      // 護衛艦：前優先（前が範囲内なら前、それ以外は左→右）
+      const forward = {x: ship.x, y: ship.y + dy, code:"F"};
+      if(inBounds(forward.x, forward.y)) return forward;
+      const left = {x: ship.x - 1, y: ship.y, code:"L"};
+      if(inBounds(left.x,left.y)) return left;
+      const right= {x: ship.x + 1, y: ship.y, code:"R"};
+      if(inBounds(right.x,right.y)) return right;
+    }
+    return {x: ship.x, y: ship.y, code:"STAY"};
+  }
+
+  function applyPlusMove(owner, ship, move){
+    const buff = state.effect.shipBuff.get(ship.id);
+    if(!buff?.plusMove) return [move]; // 1歩
+    // 2歩目：同じ方向にもう1回
+    const dx = move.x - ship.x;
+    const dy = move.y - ship.y;
+    const second = {x: move.x + dx, y: move.y + dy, code: move.code};
+    if(inBounds(second.x, second.y)) return [move, second];
+    return [move]; // 範囲外は1歩のみ（範囲外挙動は「陣地到達」で解決しているため）
+  }
+
+  /**********************
+   * 特殊マス処理（通過時即時）
+   **********************/
+  function applySpecial(owner, x,y){
+    const k = key(x,y);
+    if(TREASURES.has(k)){
+      if(owner==="P") state.pPts += 100; else state.ePts += 100;
+      logTag(`特殊マス：宝 → ${owner==="P"?"あなた":"相手"}のポイントが増えた（＋100）`, "tagGood");
+    }else if(WHIRLS.has(k)){
+      if(owner==="P") state.pPts -= 100; else state.ePts -= 100;
+      logTag(`特殊マス：渦潮 → ${owner==="P"?"あなた":"相手"}のポイントが減った（−100）`, "tagBad");
+    }
+  }
+
+  /**********************
+   * 陣地到達（対称）：船消滅＋相手−100
+   **********************/
+  function applyBaseReach(owner, ship){
+    const opp = owner==="P" ? "E" : "P";
+    if(owner==="P" && ship.y === 0){
+      state.ePts -= 100;
+      ship.alive = false;
+      logTag(`陣地到達：あなたの船が相手陣地に入った → 相手のポイントが減った（−100） / 船は消えた`, "tagGood");
+      return true;
+    }
+    if(owner==="E" && ship.y === SIZE-1){
+      state.pPts -= 100;
+      ship.alive = false;
+      logTag(`陣地到達：相手の船が自陣地に入った → あなたのポイントが減った（−100） / 船は消えた`, "tagBad");
+      return true;
+    }
+    return false;
+  }
+
+  /**********************
+   * 戦闘
+   **********************/
+  function resolveCombatAt(x,y){
+    const p = getShipAt("P",x,y);
+    const e = getShipAt("E",x,y);
+    if(!p || !e) return;
+
+    const pBuff = state.effect.shipBuff.get(p.id);
+    const eBuff = null; // 前庭仕様：敵はカード介入なし
+    const outcome = battleOutcome(p.type, e.type, !!pBuff?.revNext, false);
+
+    if(outcome === 0){
+      p.alive = false; e.alive = false;
+      logMsg(TEXT.battle.draw);
+    }else if(outcome === 1){
+      e.alive = false;
+      logMsg(TEXT.battle.win);
+    }else{
+      p.alive = false;
+      logMsg(TEXT.battle.lose);
+    }
+
+    // revNextは「次の1戦闘のみ」なので消す
+    if(pBuff?.revNext){
+      pBuff.revNext = false;
+      state.effect.shipBuff.set(p.id, pBuff);
+    }
+  }
+
+  /**********************
+   * 移動（競合処理：後の船は移動キャンセル / 自軍同士同マス不可）
+   **********************/
+  function moveFleet(owner){
+    const ships = owner==="P" ? state.pShips : state.eShips;
+
+    // 移動順：あなたは左→右、相手は右→左（試作上の固定）
+    const alive = ships.filter(s => s.alive).slice().sort((a,b) => {
+      return owner==="P" ? (a.x-b.x) : (b.x-a.x);
+    });
+
+    const reserved = new Set(); // そのターンに先に確保された移動先
+    for(const ship of alive){
+      if(!ship.alive) continue;
+
+      // AIターゲット（相手のみ）
+      let aiTarget = null;
+      if(owner==="E"){
+        // 最も近いあなたの船
+        const pAlive = state.pShips.filter(s => s.alive);
+        if(pAlive.length){
+          pAlive.sort((s1,s2)=>{
+            const d1 = Math.abs(s1.x-ship.x)+Math.abs(s1.y-ship.y);
+            const d2 = Math.abs(s2.x-ship.x)+Math.abs(s2.y-ship.y);
+            return d1-d2;
+          });
+          aiTarget = {x:pAlive[0].x, y:pAlive[0].y};
+        }
+      }
+
+      // 1歩目の決定
+      let firstMove;
+      if(owner==="P"){
+        firstMove = playerMoveChoice(ship);
+      }else{
+        const opts = candidatesForShip(ship, owner, aiTarget);
+        if(!opts.length){ firstMove = {x:ship.x, y:ship.y, code:"STAY"}; }
+        else firstMove = opts[Math.floor(Math.random()*opts.length)];
+      }
+
+      // 移動距離+1（あなたのみ効果あり）
+      const steps = (owner==="P") ? applyPlusMove(owner, ship, firstMove) : [firstMove];
+
+      let moved = false;
+      for(const step of steps){
+        if(!step || step.code==="STAY") break;
+
+        // 範囲内
+        if(!inBounds(step.x, step.y)) break;
+
+        // 同マス競合（このターンに先に予約された先があるならキャンセル）
+        const destKey = key(step.x, step.y);
+
+        // 自軍同士同マス不可：現時点で自軍が占有していても不可
+        if(isOccupiedBy(owner, step.x, step.y)) {
+          // ただし、自分自身の現在地は除外
+          if(!(step.x===ship.x && step.y===ship.y)){
+            // 移動キャンセル
+            logMsg(`${owner==="P"?"あなた":"相手"}：移動競合 → 移動キャンセル`);
+            break;
+          }
+        }
+
+        if(reserved.has(destKey)){
+          logMsg(`${owner==="P"?"あなた":"相手"}：移動先が競合 → 後の船は移動キャンセル`);
+          break;
+        }
+
+        // 予約
+        reserved.add(destKey);
+
+        // 実移動
+        ship.x = step.x;
+        ship.y = step.y;
+        moved = true;
+
+        // 通過時特殊マス
+        applySpecial(owner, ship.x, ship.y);
+
+        // 戦闘（移動後その場で解決）
+        resolveCombatAt(ship.x, ship.y);
+
+        // もし自分が消えたら以降のステップは無し
+        if(!ship.alive) break;
+
+        // 陣地到達
+        const reached = applyBaseReach(owner, ship);
+        if(reached) break;
+      }
+
+      // その船のターン効果はここまで（fixedDir / plusMoveはターン限定のため、後でクリア）
+    }
+
+    // 盤面反映
+    renderGrid();
+    renderHud();
+  }
+
+  /**********************
+   * ターン終わり処理
+   **********************/
+  function endTurnCleanup(){
+    // ターン限定効果をクリア
+    clearTurnEffects();
+
+    // 手札補充：カード使用したターンのみ、ターン終了時に1枚補充
+    // （手札を常に5枚に保つ）
+    if(state.effect.usedCardThisTurn){
+      // ここには来ない（clearTurnEffectsで消してしまう前に判定したい）
+    }
+  }
+
+  function replenishIfNeeded(usedCard){
+    if(usedCard){
+      state.hand.push(drawCard());
+      // 手札が5枚を超えていたら調整（基本は超えない）
+      while(state.hand.length > 5) state.hand.shift();
+      while(state.hand.length < 5) state.hand.push(drawCard());
+    }else{
+      // スキップ・役のターンは補充なしだが、前庭仕様は「常に5枚」なので
+      // 役で3枚消費した場合だけ不足する。そこは「補充しない」だと手札が減り続けるため、
+      // 前庭仕様の「常に5枚」を優先してターン終了時に不足分だけ補充する。
+      while(state.hand.length < 5) state.hand.push(drawCard());
+      while(state.hand.length > 5) state.hand.pop();
+    }
+  }
+
+  function checkEndImmediate(){
+    // ポイント0以下は即時（前庭仕様：明示）
+    if(state.ePts <= 0){
+      finish("P", TEXT.result.win0);
+      return true;
+    }
+    if(state.pPts <= 0){
+      finish("E", TEXT.result.lose0);
+      return true;
+    }
+    return false;
+  }
+
+  function finish(winner, msg){
+    state.ended = true;
+    state.winner = winner;
+    stopTimer();
+    setPhase("END");
+    if(winner==="P") logTag(msg, "tagGood");
+    else if(winner==="E") logTag(msg, "tagBad");
+    else logTag(msg, "tagWarn");
+    renderAll();
+  }
+
+  /**********************
+   * 介入フェーズからの進行
+   **********************/
+  function proceedFromIntervene(action){
+    // action: "CARD" | "SKIP" | "ROLE"
+    stopTimer();
+
+    // このターンの「カード使用したか」を記録（補充ルール用）
+    const usedCard = (action === "CARD");
+
+    // 介入決定ログ
+    if(action==="SKIP"){
+      logMsg("スキップ。");
+    }else if(action==="ROLE"){
+      // 役（成立していないならスキップ扱い）
+      const ok = consumeTripleAndDamage();
+      if(!ok){
+        logMsg("役は成立しない。スキップ。");
+      }
+      if(checkEndImmediate()) return;
+    }
+
+    // 次：あなたの移動
+    setPhase("PMOVE");
+    btnNext.onclick = () => {
+      // あなたの船が動く
+      moveFleet("P");
+      if(checkEndImmediate()) return;
+
+      // 次：相手の移動
+      setPhase("EMOVE");
+      btnNext.onclick = () => {
+        moveFleet("E");
+        if(checkEndImmediate()) return;
+
+        // ポイント更新（ログのみ）
+        setPhase("POINTS");
+        btnNext.onclick = () => {
+          // ターン終了時補充
+          replenishIfNeeded(usedCard);
+
+          // ターン終了判定
+          if(state.turn >= MAX_TURNS){
+            // 規定ターン終了
+            if(state.pPts > state.ePts) finish("P", TEXT.result.time);
+            else if(state.ePts > state.pPts) finish("E", TEXT.result.time);
+            else finish("TIE", "時間切れ。同点。");
+            return;
+          }
+
+          // 次ターンへ
+          state.turn += 1;
+          renderAll();
+          setPhase("INTERVENE");
+          startInterveneTimer();
+        };
+      };
+    };
+  }
+
+  /**********************
+   * Modal（カード使用）
+   **********************/
+  function openModal(){
+    if(state.phase !== "INTERVENE") return;
+    modalBack.style.display = "flex";
+
+    // select: cards
+    selCard.innerHTML = "";
+    state.hand.forEach((c, idx) => {
+      const opt = document.createElement("option");
+      opt.value = String(idx);
+      opt.textContent = `${c.name}（数字${c.num}）`;
+      selCard.appendChild(opt);
+    });
+
+    // select: ships
+    selShip.innerHTML = "";
+    const pAlive = state.pShips.filter(s => s.alive);
+    pAlive.forEach((s, idx) => {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = `${SHIP[s.type].name}(${s.type}) @(${s.x+1},${s.y+1})`;
+      selShip.appendChild(opt);
+    });
+
+    updateModalNote();
+  }
+
+  function closeModal(){
+    modalBack.style.display = "none";
+  }
+
+  function updateModalNote(){
+    const idx = Number(selCard.value || 0);
+    const c = state.hand[idx];
+    if(!c){ cardNote.textContent = "—"; dirWrap.style.display="none"; return; }
+
+    modalTitle.textContent = "カードを使う";
+    // テンプレ（ドリス）に寄せて表示
+    let lines = [];
+    lines.push(`【効果名】${c.name}`);
+    lines.push(`何をするか：${c.desc}`);
+    lines.push(`結果：今ターンのみ適用`);
+    cardNote.textContent = lines.join("\n");
+
+    // 方向固定のときだけ方向選択
+    dirWrap.style.display = (c.typeKey==="DIR") ? "block" : "none";
+  }
+
+  /**********************
+   * ボタン
+   **********************/
+  btnCard.onclick = () => {
+    if(state.phase !== "INTERVENE") return;
+    state.timer.locked = true; // 選択中はカウント停止扱い
+    openModal();
+  };
+
+  btnSkip.onclick = () => {
+    if(state.phase !== "INTERVENE") return;
+    proceedFromIntervene("SKIP");
+  };
+
+  btnRole.onclick = () => {
+    if(state.phase !== "INTERVENE") return;
+    proceedFromIntervene("ROLE");
+  };
+
+  btnReset.onclick = () => {
+    stopTimer();
+    initState();
+  };
+
+  modalClose.onclick = () => {
+    closeModal();
+    // 再開（残り時間があるなら）
+    state.timer.locked = false;
+  };
+
+  selCard.onchange = updateModalNote;
+
+  modalApply.onclick = () => {
+    // カード使用確定（1枚使用）
+    const cardIdx = Number(selCard.value);
+    const shipId = selShip.value;
+    const c = state.hand[cardIdx];
+    if(!c) return;
+
+    // DIRのときだけdir必須
+    const dir = (c.typeKey==="DIR") ? selDir.value : null;
+
+    // 適用
+    const ok = applyCardEffect(cardIdx, shipId, dir);
+    closeModal();
+    state.timer.locked = false;
+
+    renderAll();
+    // カードを使った場合も「介入フェーズ」は続くが、この試作では確定したら即進行にする
+    proceedFromIntervene("CARD");
+  };
+
+  modalBack.addEventListener("click", (e) => {
+    if(e.target === modalBack){
+      closeModal();
+      state.timer.locked = false;
+    }
+  });
+
+  /**********************
+   * 起動
+   **********************/
+  function boot(){
+    // grid準備
+    for(let i=0;i<SIZE*SIZE;i++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      gridEl.appendChild(cell);
+    }
+    initState();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
