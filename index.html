@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.1.0（交互オート＋介入拡張フック）</title>
+  <title>Project AO 前庭仕様 v2.2.0（交互オート＋Q配置カード＋ループ対策）</title>
   <style>
     :root{
       --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
@@ -85,6 +85,12 @@
       animation: pulseTarget .8s ease-in-out infinite;
     }
 
+    /* Q配置ガイド（自軍陣地の1マス上ライン） */
+    .cell.qLine{
+      outline: 2px dashed rgba(125,255,178,.35);
+      outline-offset: -6px;
+    }
+
     .marker{
       position:absolute; left:8px; top:8px;
       font-size:10px; color:rgba(231,238,252,.88);
@@ -137,6 +143,7 @@
     button:disabled{opacity:.45; cursor:not-allowed;}
     .btnPrimary{border-color: rgba(106,167,255,.85);}
     .btnDanger{border-color: rgba(255,125,125,.85);}
+    .btnGood{border-color: rgba(125,255,178,.75);}
 
     .panel{
       margin-top:12px;
@@ -182,11 +189,12 @@
 <div class="wrap">
   <div class="top">
     <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.1.0（交互オート＋介入拡張フック）</h1>
+      <h1>Project AO：前庭仕様 v2.2.0（交互オート＋Q配置カード＋ループ対策）</h1>
       <div class="row">
         <div class="pill">状態：<b id="state">準備中</b></div>
         <div class="pill">ターン：<b id="turn">1</b></div>
         <div class="pill">介入：<b>5秒</b>（ターン1回）</div>
+        <div class="pill">Q配置カード：<b id="qCardRemain">1</b>枚</div>
       </div>
 
       <div class="phase">
@@ -206,7 +214,8 @@
         ・ログ：「いま動く：あなた □」を毎回出す
       </div>
       <div class="small" style="margin-top:10px;">
-        ※ v2.1.0：オートは <b>交互（あなた1手→相手1手）</b>。
+        ※ v2.2.0：オートは <b>交互（あなた1手→相手1手）</b>。<br/>
+        ※ ループ対策：最大ターン／盤面反復で引き分け。
       </div>
     </div>
   </div>
@@ -216,10 +225,11 @@
       <div class="boardTop">
         <div class="legend">
           盤面：5×5（上＝相手陣／下＝自陣）<br/>
-          駒：<b>□</b>（前後1） / <b>△</b>（斜め4） / <b>○</b>（前+斜め前2） / <b>K</b>（固定）<br/>
+          駒：<b>□</b>（前後1） / <b>△</b>（斜め4） / <b>○</b>（前+斜め前2） / <b>K</b>（固定） / <b>Q</b>（王将：8方向1）<br/>
           勝利：相手のKを取ったら勝ち（取った駒は今は再利用不可）
         </div>
         <div class="legend">
+          介入カード：<b>Q配置</b>（自軍陣地の1マス上ラインにQを置く／試合1回）<br/>
           表示：<b>あなた</b>＝青 / <b>相手</b>＝桃
         </div>
       </div>
@@ -235,6 +245,7 @@
       <div class="btnRow">
         <button id="btnStart" class="btnPrimary">開始</button>
         <button id="btnSkip" class="btnPrimary" disabled>スキップ</button>
+        <button id="btnUseQ" class="btnGood" disabled>Q配置カードを使う</button>
         <button id="btnReset" class="btnDanger">リセット</button>
       </div>
 
@@ -251,10 +262,18 @@
       </div>
 
       <div class="panel">
-        <div class="panelTitle"><div class="t">介入（拡張設計）</div></div>
+        <div class="panelTitle"><div class="t">介入（ターン1回）</div></div>
         <div class="small" style="margin-top:8px">
-          現状：ターン1回（スキップのみ）<br/>
-          将来：カード効果で「都度介入（割り込み）」を解放できるフックを実装済み。
+          ・今は「スキップ」または「Q配置カード」。<br/>
+          ・Q配置を押したら、<b>自軍陣地の1マス上ライン</b>（点線）をクリックして配置。
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panelTitle"><div class="t">無限ループ対策</div></div>
+        <div class="small" style="margin-top:8px">
+          ・最大ターン：30で引き分け<br/>
+          ・同一盤面：3回で引き分け
         </div>
       </div>
 
@@ -281,8 +300,18 @@
   const PREVIEW_MS = 450;
   const AFTER_MOVE_MS = 750;
 
+  // 無限ループ対策（試作向け）
+  const MAX_TURNS = 30;              // ここに達したら終了（引き分け）
+  const REPEAT_DRAW_THRESHOLD = 3;   // 同一盤面が3回出たら引き分け
+
   const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO:"AUTO", END:"END" };
-  const PIECE = { K:{label:"K"}, S:{label:"□"}, T:{label:"△"}, C:{label:"○"} };
+  const PIECE = {
+    K:{label:"K"},
+    S:{label:"□"},
+    T:{label:"△"},
+    C:{label:"○"},
+    Q:{label:"Q"}  // 追加：王将
+  };
   const forwardDelta = (owner)=> owner==="P" ? -1 : 1;
   const enemyOf = (owner)=> owner==="P" ? "E" : "P";
 
@@ -294,9 +323,11 @@
   const paletteEl = el("palette");
   const btnStart = el("btnStart");
   const btnSkip = el("btnSkip");
+  const btnUseQ = el("btnUseQ");
   const btnReset = el("btnReset");
   const stateEl = el("state");
   const turnEl = el("turn");
+  const qCardRemainEl = el("qCardRemain");
   const phaseNameEl = el("phaseName");
   const phaseSubEl = el("phaseSub");
   const timerEl = el("timer");
@@ -312,17 +343,23 @@
       stock: { S:2, T:1, C:1 },
       selectedStockKind: null,
 
+      // 介入
       intervene: { left:0, tick:null, locked:false },
 
       // 交互オート進行用
-      auto: { index: 0, queue: [], side: "P" },
+      auto: { index: 0, queue: [] },
 
-      // 将来：割り込み介入（都度介入）拡張のためのフック
-      interrupt: {
-        enabled: false,            // ← 将来カードで true にする想定（現状 false）
-        maxPerTurn: 1,             // 1ターン最大何回まで都度介入を許すか
-        usedThisTurn: 0
+      // 将来：割り込み介入（都度介入）拡張のためのフック（現状は未使用）
+      interrupt: { enabled: false, maxPerTurn: 1, usedThisTurn: 0 },
+
+      // 追加：介入カード（試合中1回）
+      cards: {
+        placeQ: { remain: 1 } // 「Q配置」カード
       },
+      awaitingQPlacement: false, // Q配置待ち
+
+      // 盤面反復（無限ループ）検知
+      repetition: { map: new Map() },
 
       log: [],
       ui: { activePieceId: null, target: null },
@@ -343,6 +380,7 @@
   function pieceAt(x,y){ return state.pieces.find(p => p.alive && p.x===x && p.y===y) || null; }
   function piecesOf(owner){ return state.pieces.filter(p => p.alive && p.owner===owner); }
   function inBounds(x,y){ return x>=0 && x<SIZE && y>=0 && y<SIZE; }
+  function getPieceById(id){ return state.pieces.find(p => p.id===id && p.alive) || null; }
 
   function buildGrid(){
     gridEl.innerHTML = "";
@@ -365,18 +403,32 @@
   function cellEl(x,y){ return gridEl.children[y*SIZE + x] || null; }
 
   function renderGrid(){
+    // 既存の駒を一旦削除
     [...gridEl.children].forEach(c => {
       const old = c.querySelector(".ship");
       if(old) old.remove();
     });
-    [...gridEl.children].forEach(c => c.classList.remove("activeCell","targetCell"));
 
+    // クラスをリセット
+    [...gridEl.children].forEach(c => c.classList.remove("activeCell","targetCell","qLine"));
+
+    // Q配置待ちのときは、配置可能ライン（自軍陣地の1マス上）をガイド
+    if(state.phase === PHASE.INTERVENE && state.awaitingQPlacement){
+      const qY = PLAYER_ROW - 1;
+      for(let x=0;x<SIZE;x++){
+        const c = cellEl(x,qY);
+        if(c) c.classList.add("qLine");
+      }
+    }
+
+    // 目標ハイライト
     if(state.ui?.target){
       const t = state.ui.target;
       const tc = cellEl(t.x, t.y);
       if(tc) tc.classList.add("targetCell");
     }
 
+    // 駒描画
     for(const p of state.pieces){
       if(!p.alive) continue;
       const cell = cellEl(p.x,p.y);
@@ -423,6 +475,7 @@
   function renderHud(){
     stateEl.textContent = state.ended ? "終了" : "進行中";
     turnEl.textContent = String(state.turn);
+    qCardRemainEl.textContent = String(state.cards.placeQ.remain);
   }
   function renderLog(){
     logEl.innerHTML = "";
@@ -438,6 +491,7 @@
     renderPalette();
     renderGrid();
     renderLog();
+    updateButtons();
   }
 
   function esc(s){ return String(s).replaceAll("<","&lt;").replaceAll(">","&gt;"); }
@@ -458,37 +512,53 @@
     renderGrid();
   }
 
+  function updateButtons(){
+    if(state.phase === PHASE.PLACE){
+      btnStart.disabled = !isPlacementReady();
+      btnSkip.disabled = true;
+      btnUseQ.disabled = true;
+      return;
+    }
+    if(state.phase === PHASE.INTERVENE){
+      btnStart.disabled = true;
+      btnSkip.disabled = false;
+      // Q配置カードは、残りがあって、かつ「Q配置待ち」ではないときに押せる
+      btnUseQ.disabled = !(state.cards.placeQ.remain > 0) || state.awaitingQPlacement;
+      return;
+    }
+    // AUTO / END
+    btnStart.disabled = true;
+    btnSkip.disabled = true;
+    btnUseQ.disabled = true;
+  }
+
   function setPhase(phase){
     state.phase = phase;
     stopTimer();
     clearHighlights();
+    state.awaitingQPlacement = false;
 
     if(phase===PHASE.PLACE){
       phaseNameEl.textContent = "配置する";
       timerEl.textContent = "—";
       phaseSubEl.textContent = "自陣（最下段）に □×2 / △×1 / ○×1 を配置して、開始を押してください。Kは中央固定です。";
       panelPlacement.style.display = "block";
-      btnStart.disabled = !isPlacementReady();
-      btnSkip.disabled = true;
     } else if(phase===PHASE.INTERVENE){
       phaseNameEl.textContent = "介入する？（ターン1回）";
       timerEl.textContent = String(INTERVENE_SECONDS);
-      phaseSubEl.textContent = "5秒で判断。今はスキップのみ。将来カードで都度介入（割り込み）解放予定。";
+      phaseSubEl.textContent = "5秒で判断。スキップ または Q配置カード（試合中1回）。";
       panelPlacement.style.display = "none";
-      btnStart.disabled = true;
-      btnSkip.disabled = false;
       startTimer();
     } else if(phase===PHASE.AUTO){
       phaseNameEl.textContent = "オート進行（交互：あなた→相手）";
       timerEl.textContent = "—";
       phaseSubEl.textContent = "1手ずつ交互に動きます。";
-      btnSkip.disabled = true;
+      panelPlacement.style.display = "none";
     } else if(phase===PHASE.END){
       phaseNameEl.textContent = "結果";
       timerEl.textContent = "—";
       phaseSubEl.textContent = "";
-      btnStart.disabled = true;
-      btnSkip.disabled = true;
+      panelPlacement.style.display = "none";
     }
     renderAll();
   }
@@ -497,6 +567,30 @@
 
   function onCellClick(x,y){
     if(state.ended) return;
+
+    // 介入：Q配置待ち
+    if(state.phase === PHASE.INTERVENE && state.awaitingQPlacement){
+      const qY = PLAYER_ROW - 1;
+      if(y !== qY){
+        logMsg("Q配置：自軍陣地の1マス上のライン（点線）をクリックしてください。");
+        return;
+      }
+      if(pieceAt(x,y)){
+        logMsg("Q配置：そのマスは使用中です。別の空きマスを選んでください。");
+        return;
+      }
+      // 配置
+      addPiece("P","Q", x,y);
+      state.cards.placeQ.remain -= 1;
+      state.awaitingQPlacement = false;
+      stopTimer();
+      logTag("介入：Qを配置しました。", "tagGood");
+      renderAll();
+      proceedTurnSafe();
+      return;
+    }
+
+    // 配置フェーズ
     if(state.phase !== PHASE.PLACE) return;
 
     if(y !== PLAYER_ROW){
@@ -513,7 +607,6 @@
       here.alive = false;
       state.stock[here.kind] += 1;
       logMsg(`配置：${PIECE[here.kind].label} を回収しました。`);
-      btnStart.disabled = !isPlacementReady();
       renderAll();
       return;
     }
@@ -533,7 +626,6 @@
     addPiece("P", state.selectedStockKind, x,y);
     state.stock[state.selectedStockKind] -= 1;
     logMsg(`配置：${PIECE[state.selectedStockKind].label} を配置しました。`);
-    btnStart.disabled = !isPlacementReady();
     renderAll();
   }
 
@@ -562,9 +654,10 @@
     const add = (nx,ny) => {
       if(!inBounds(nx,ny)) return;
       const occ = pieceAt(nx,ny);
-      if(occ && occ.owner===piece.owner) return;
+      if(occ && occ.owner===piece.owner) return; // 自軍重なり不可
       moves.push({x:nx,y:ny});
     };
+
     if(piece.kind==="S"){
       add(piece.x, piece.y + dy);
       add(piece.x, piece.y - dy);
@@ -577,6 +670,14 @@
       add(piece.x, piece.y + dy);
       add(piece.x-1, piece.y + dy);
       add(piece.x+1, piece.y + dy);
+    } else if(piece.kind==="Q"){
+      // 追加：王将（8方向1マス）
+      for(let dx=-1; dx<=1; dx++){
+        for(let ddy=-1; ddy<=1; ddy++){
+          if(dx===0 && ddy===0) continue;
+          add(piece.x + dx, piece.y + ddy);
+        }
+      }
     }
     return moves;
   }
@@ -604,6 +705,11 @@
     state.ended = true;
     setPhase(PHASE.END);
     logTag(msg, winner==="P" ? "tagGood" : "tagBad");
+  }
+  function endDraw(msg){
+    state.ended = true;
+    setPhase(PHASE.END);
+    logTag(msg, "tagWarn");
   }
 
   function chooseAutoMove(piece){
@@ -635,9 +741,8 @@
 
   function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-  // ====== 交互オートのキモ：ターン開始時に「動く順番キュー」を作る ======
+  // ====== 交互オート：ターン開始時に動く順番キューを作る ======
   function buildInterleavedQueue(){
-    // K以外を座標順にして、交互に並べる（長さが違っても交互に詰める）
     const pList = piecesOf("P").filter(p => p.kind!=="K").sort((a,b)=> (a.y-b.y)||(a.x-b.x));
     const eList = piecesOf("E").filter(p => p.kind!=="K").sort((a,b)=> (a.y-b.y)||(a.x-b.x));
 
@@ -649,24 +754,35 @@
     }
     return q;
   }
-  function getPieceById(id){
-    return state.pieces.find(p => p.id===id && p.alive) || null;
-  }
 
-  // ====== 将来拡張：割り込み介入（都度介入）フック ======
-  // 現状は enabled=false なので一切呼ばれません。
-  function shouldOfferInterruptIntervene(){
-    if(!state.interrupt.enabled) return false;
-    if(state.interrupt.usedThisTurn >= state.interrupt.maxPerTurn) return false;
-    // 例：戦闘が起きる直前 / Kが危ない直前 などの条件はここに積む
-    return true;
+  // ====== 盤面反復（無限ループ）検知 ======
+  function guessNextOwnerForKey(){
+    if(state.phase === PHASE.AUTO && state.auto?.queue && state.auto.index < state.auto.queue.length){
+      const id = state.auto.queue[state.auto.index];
+      const p = getPieceById(id);
+      return p ? p.owner : "X";
+    }
+    return "P";
   }
-  async function runInterruptInterveneIfNeeded(){
-    if(!shouldOfferInterruptIntervene()) return;
-    state.interrupt.usedThisTurn += 1;
-    // ここで「3秒都度介入」画面を出す、など将来拡張
-    // 現状は未実装なのでログだけ（デバッグ用）
-    logTag("（将来拡張）割り込み介入チャンス", "tagWarn");
+  function boardKey(){
+    const nextOwner = guessNextOwnerForKey();
+    const alive = state.pieces
+      .filter(p => p.alive)
+      .map(p => `${p.owner}${p.kind}${p.x}${p.y}`)
+      .sort()
+      .join("|");
+    return `T${state.turn}|N${nextOwner}|${alive}`;
+  }
+  function recordAndCheckRepetition(){
+    const key = boardKey();
+    const m = state.repetition.map;
+    const c = (m.get(key) || 0) + 1;
+    m.set(key, c);
+    if(c >= REPEAT_DRAW_THRESHOLD){
+      endDraw(`同一盤面が ${REPEAT_DRAW_THRESHOLD} 回繰り返されたため引き分け。`);
+      return true;
+    }
+    return false;
   }
 
   async function doOneAutoMoveById(pieceId){
@@ -688,10 +804,6 @@
     highlightTarget(move.x, move.y);
     await sleep(PREVIEW_MS);
 
-    // 将来：ここで「戦闘直前の割り込み介入」を入れたくなったらここが差し込みポイント
-    // （例：移動先に相手駒がいるなら…など）
-    await runInterruptInterveneIfNeeded();
-
     performMove(piece, move.x, move.y);
     if(checkWin()) return;
 
@@ -702,10 +814,7 @@
   async function runAutoTurnInterleaved(){
     setPhase(PHASE.AUTO);
 
-    // ターン開始：割り込み介入カウンタをリセット
     state.interrupt.usedThisTurn = 0;
-
-    // このターンで動く順番（交互）を確定
     state.auto.queue = buildInterleavedQueue();
     state.auto.index = 0;
 
@@ -726,11 +835,23 @@
     stopTimer();
     clearHighlights();
 
-    // ここが「ターン1回介入」→「交互オート」→ 次ターンへ
     await runAutoTurnInterleaved();
     if(state.ended) return;
 
+    // ターン更新
     state.turn += 1;
+
+    // 最大ターン到達 → 引き分け
+    if(state.turn > MAX_TURNS){
+      endDraw(`最大ターン（${MAX_TURNS}）に到達したため引き分け。`);
+      return;
+    }
+
+    // 反復（ループ）検知 → 引き分け
+    if(recordAndCheckRepetition()){
+      return;
+    }
+
     setPhase(PHASE.INTERVENE);
   }
 
@@ -780,13 +901,32 @@
     }
     placeEnemyPiecesRandom();
     logMsg("開始：相手が配置を完了しました。");
+
+    // 初期盤面を履歴に記録
+    recordAndCheckRepetition();
+
     setPhase(PHASE.INTERVENE);
   });
 
   btnSkip.addEventListener("click", () => {
     if(state.phase !== PHASE.INTERVENE) return;
+    if(state.awaitingQPlacement){
+      logMsg("Q配置：配置先を選ぶか、もう一度「Q配置カードを使う」をキャンセルしてください。");
+      return;
+    }
     logMsg("スキップ。");
     proceedTurnSafe();
+  });
+
+  btnUseQ.addEventListener("click", () => {
+    if(state.phase !== PHASE.INTERVENE) return;
+    if(state.cards.placeQ.remain <= 0){
+      logMsg("Q配置：カードがありません。");
+      return;
+    }
+    state.awaitingQPlacement = true;
+    logTag("Q配置：自軍陣地の1マス上ライン（点線）をクリックして配置してください。", "tagGood");
+    renderAll();
   });
 
   init();
