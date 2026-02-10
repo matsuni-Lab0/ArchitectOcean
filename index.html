@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.0（両軍オート）</title>
+  <title>Project AO 前庭仕様 v2.0.1（両軍オート検証）</title>
   <style>
     :root{
-      --bg:#0b1220; --panel:#101a2d; --panel2:#0f1730; --text:#e7eefc; --muted:#a8b6d6;
+      --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
       --line:#253457; --accent:#6aa7ff; --good:#7dffb2; --bad:#ff7d7d; --warn:#ffd37d;
     }
     *{box-sizing:border-box}
@@ -66,13 +66,6 @@
       overflow:hidden;
       cursor:pointer;
     }
-    .cell::after{
-      content:"";
-      position:absolute; inset:-40%;
-      background: radial-gradient(circle at 30% 30%, rgba(106,167,255,.14) 0%, rgba(106,167,255,0) 55%);
-      transform: rotate(10deg);
-      pointer-events:none;
-    }
     .marker{
       position:absolute; left:8px; top:8px;
       font-size:10px; color:rgba(231,238,252,.88);
@@ -129,9 +122,7 @@
     .panelTitle{display:flex; justify-content:space-between; align-items:center; gap:10px;}
     .panelTitle .t{font-weight:1000}
     .small{font-size:12px; color:var(--muted); line-height:1.55}
-    .palette{
-      display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;
-    }
+    .palette{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
     .pieceBtn{
       border:1px solid rgba(37,52,87,.9);
       background: rgba(15,23,48,.85);
@@ -165,7 +156,7 @@
 <div class="wrap">
   <div class="top">
     <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.0（将棋型制覇／キング勝利／両軍オート）</h1>
+      <h1>Project AO：前庭仕様 v2.0.1（両軍オート成立チェック）</h1>
       <div class="row">
         <div class="pill">状態：<b id="state">準備中</b></div>
         <div class="pill">ターン：<b id="turn">1</b></div>
@@ -182,13 +173,10 @@
     </div>
 
     <div class="card hud" style="flex:1 1 320px;">
-      <h1>ルール要点</h1>
+      <h1>検証ポイント</h1>
       <div class="small">
-        ・駒が重なったら、動いた側が制覇（相手駒を取る）<br/>
-        ・取った駒は再使用できない（将来カードで拡張予定）<br/>
-        ・勝利条件：相手のK（キング）を取る<br/>
-        ・Kは基本移動できない（将来カードで拡張予定）<br/>
-        ・対戦中は両軍ともオートで動く（あなたは介入のみ）<br/>
+        ・「スキップ」または3秒放置で、両軍の駒がオートで動くか<br/>
+        ・動けない場合はログに理由が出るか（v2.0.1で強化）<br/>
       </div>
     </div>
   </div>
@@ -246,7 +234,7 @@
         <div class="small" style="margin-top:8px">
           ・各ターン、K以外の駒が順に1回ずつ動きます。<br/>
           ・優先：①Kを取れる ②何か取れる ③相手Kに近づく<br/>
-          ・同点はランダム選択。
+          ・同点はランダム選択。<br/>
         </div>
       </div>
     </div>
@@ -260,16 +248,10 @@
   const ENEMY_ROW = 0;
   const KING_COL = 2;
 
-  const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO_PLAYER:"AUTO_PLAYER", AUTO_ENEMY:"AUTO_ENEMY", END:"END" };
-
-  function forwardDelta(owner){ return owner==="P" ? -1 : 1; }
-
-  const PIECE = {
-    K: { label:"K" },
-    S: { label:"□" }, // Square
-    T: { label:"△" }, // Triangle
-    C: { label:"○" }, // Circle
-  };
+  const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO_P:"AUTO_P", AUTO_E:"AUTO_E", END:"END" };
+  const PIECE = { K:{label:"K"}, S:{label:"□"}, T:{label:"△"}, C:{label:"○"} };
+  const forwardDelta = (owner)=> owner==="P" ? -1 : 1;
+  const enemyOf = (owner)=> owner==="P" ? "E" : "P";
 
   let state;
 
@@ -293,8 +275,7 @@
       phase: PHASE.PLACE,
       turn: 1,
       ended: false,
-      winner: null,
-      pieces: [], // {id, owner, kind, x,y, alive}
+      pieces: [],
       stock: { S:2, T:1, C:1 },
       selectedStockKind: null,
       intervene: { left:0, tick:null, locked:false },
@@ -311,19 +292,10 @@
   }
 
   function addPiece(owner, kind, x,y){
-    state.pieces.push({
-      id: owner + "_" + kind + "_" + Math.random().toString(36).slice(2,9),
-      owner, kind, x,y, alive:true
-    });
+    state.pieces.push({ id: owner+"_"+kind+"_"+Math.random().toString(36).slice(2,9), owner, kind, x,y, alive:true });
   }
-
-  function pieceAt(x,y){
-    return state.pieces.find(p => p.alive && p.x===x && p.y===y) || null;
-  }
-  function piecesOf(owner){
-    return state.pieces.filter(p => p.alive && p.owner===owner);
-  }
-  function enemyOf(owner){ return owner==="P" ? "E" : "P"; }
+  function pieceAt(x,y){ return state.pieces.find(p => p.alive && p.x===x && p.y===y) || null; }
+  function piecesOf(owner){ return state.pieces.filter(p => p.alive && p.owner===owner); }
   function inBounds(x,y){ return x>=0 && x<SIZE && y>=0 && y<SIZE; }
 
   function buildGrid(){
@@ -332,8 +304,6 @@
       for(let x=0;x<SIZE;x++){
         const cell = document.createElement("div");
         cell.className = "cell";
-        cell.dataset.x = x;
-        cell.dataset.y = y;
 
         const m = document.createElement("div");
         m.className = "marker";
@@ -346,31 +316,24 @@
       }
     }
   }
-  function cellEl(x,y){
-    const idx = y*SIZE + x;
-    return gridEl.children[idx] || null;
-  }
+  function cellEl(x,y){ return gridEl.children[y*SIZE + x] || null; }
 
   function renderGrid(){
     [...gridEl.children].forEach(c => {
       const old = c.querySelector(".ship");
       if(old) old.remove();
     });
-
     for(const p of state.pieces){
       if(!p.alive) continue;
       const cell = cellEl(p.x,p.y);
       if(!cell) continue;
-
       const ship = document.createElement("div");
       ship.className = "ship " + (p.owner==="P" ? "pShip":"eShip");
       ship.textContent = PIECE[p.kind].label;
-
       const tag = document.createElement("div");
       tag.className = "tag";
       tag.textContent = (p.owner==="P" ? "あなた":"相手");
       ship.appendChild(tag);
-
       cell.appendChild(ship);
     }
   }
@@ -400,17 +363,15 @@
     stateEl.textContent = state.ended ? "終了" : "進行中";
     turnEl.textContent = String(state.turn);
   }
-
   function renderLog(){
     logEl.innerHTML = "";
-    state.log.slice(-120).forEach(line => {
+    state.log.slice(-160).forEach(line => {
       const p = document.createElement("p");
       p.innerHTML = line;
       logEl.appendChild(p);
     });
     logEl.scrollTop = logEl.scrollHeight;
   }
-
   function renderAll(){
     renderHud();
     renderPalette();
@@ -418,16 +379,9 @@
     renderLog();
   }
 
-  function logMsg(msg){
-    const safe = msg.replaceAll("<","&lt;").replaceAll(">","&gt;");
-    state.log.push(safe);
-    renderLog();
-  }
-  function logTag(msg, cls){
-    const safe = msg.replaceAll("<","&lt;").replaceAll(">","&gt;");
-    state.log.push(`<span class="${cls}">${safe}</span>`);
-    renderLog();
-  }
+  function esc(s){ return String(s).replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+  function logMsg(msg){ state.log.push(esc(msg)); renderLog(); }
+  function logTag(msg, cls){ state.log.push(`<span class="${cls}">${esc(msg)}</span>`); renderLog(); }
 
   function setPhase(phase){
     state.phase = phase;
@@ -441,32 +395,28 @@
       panelPlacement.style.display = "block";
       btnStart.disabled = !isPlacementReady();
       btnSkip.disabled = true;
-    }
-    if(phase===PHASE.INTERVENE){
+    } else if(phase===PHASE.INTERVENE){
       phaseNameEl.textContent = "介入する？";
       timerEl.textContent = "3";
       phaseSubEl.textContent = "3秒で選んで。何もしなくても両軍はオートで動く。（試作：スキップのみ）";
-      helpTextEl.textContent = "介入：今回は「スキップ」だけ有効です（カードは未実装）。";
+      helpTextEl.textContent = "介入：スキップで次へ。3秒放置でも自動スキップ。";
       panelPlacement.style.display = "none";
       btnStart.disabled = true;
       btnSkip.disabled = false;
       startTimer();
-    }
-    if(phase===PHASE.AUTO_PLAYER){
+    } else if(phase===PHASE.AUTO_P){
       phaseNameEl.textContent = "あなたの駒が動く（オート）";
       timerEl.textContent = "—";
-      phaseSubEl.textContent = "あなたのK以外の駒が順番に動きます。";
+      phaseSubEl.textContent = "あなたのK以外の駒が順に動きます。";
       helpTextEl.textContent = "オート進行中…";
       btnSkip.disabled = true;
-    }
-    if(phase===PHASE.AUTO_ENEMY){
+    } else if(phase===PHASE.AUTO_E){
       phaseNameEl.textContent = "相手の駒が動く（オート）";
       timerEl.textContent = "—";
-      phaseSubEl.textContent = "相手のK以外の駒が順番に動きます。";
+      phaseSubEl.textContent = "相手のK以外の駒が順に動きます。";
       helpTextEl.textContent = "オート進行中…";
       btnSkip.disabled = true;
-    }
-    if(phase===PHASE.END){
+    } else if(phase===PHASE.END){
       phaseNameEl.textContent = "結果";
       timerEl.textContent = "—";
       phaseSubEl.textContent = "";
@@ -477,14 +427,10 @@
     renderAll();
   }
 
-  function isPlacementReady(){
-    return state.stock.S===0 && state.stock.T===0 && state.stock.C===0;
-  }
+  function isPlacementReady(){ return state.stock.S===0 && state.stock.T===0 && state.stock.C===0; }
 
   function onCellClick(x,y){
     if(state.ended) return;
-
-    // 配置中のみ操作
     if(state.phase !== PHASE.PLACE) return;
 
     if(y !== PLAYER_ROW){
@@ -496,7 +442,6 @@
       logMsg("配置：Kは固定です。ほかのマスに配置してください。");
       return;
     }
-
     // 回収
     if(here && here.owner==="P" && here.kind!=="K"){
       here.alive = false;
@@ -506,7 +451,6 @@
       renderAll();
       return;
     }
-
     // 配置
     if(pieceAt(x,y)){
       logMsg("配置：そのマスは使用中です。");
@@ -539,7 +483,6 @@
       addPiece("E", bag[i], slots[i].x, slots[i].y);
     }
   }
-
   function shuffle(a){
     for(let i=a.length-1;i>0;i--){
       const j = Math.floor(Math.random()*(i+1));
@@ -547,27 +490,24 @@
     }
   }
 
-  // 移動可能マス
   function getLegalMoves(piece){
-    const owner = piece.owner;
-    const dy = forwardDelta(owner);
+    const dy = forwardDelta(piece.owner);
     const moves = [];
     const add = (nx,ny) => {
       if(!inBounds(nx,ny)) return;
       const occ = pieceAt(nx,ny);
-      if(occ && occ.owner===owner) return; // 味方上は不可
+      if(occ && occ.owner===piece.owner) return;
       moves.push({x:nx,y:ny});
     };
-
-    if(piece.kind==="S"){ // □：前後
+    if(piece.kind==="S"){
       add(piece.x, piece.y + dy);
       add(piece.x, piece.y - dy);
-    }else if(piece.kind==="T"){ // △：斜め4
+    } else if(piece.kind==="T"){
       add(piece.x-1, piece.y + dy);
       add(piece.x+1, piece.y + dy);
       add(piece.x-1, piece.y - dy);
       add(piece.x+1, piece.y - dy);
-    }else if(piece.kind==="C"){ // ○：前＋斜め前2
+    } else if(piece.kind==="C"){
       add(piece.x, piece.y + dy);
       add(piece.x-1, piece.y + dy);
       add(piece.x+1, piece.y + dy);
@@ -580,38 +520,26 @@
     if(target && target.owner!==piece.owner){
       target.alive = false;
       logTag(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が ${PIECE[target.kind].label} を制覇（取った）`, "tagWarn");
-    }else{
+    } else {
       logMsg(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が移動`);
     }
-    piece.x = toX;
-    piece.y = toY;
+    piece.x = toX; piece.y = toY;
     renderAll();
   }
 
   function checkWin(){
     const eK = state.pieces.find(p => p.alive && p.owner==="E" && p.kind==="K");
     const pK = state.pieces.find(p => p.alive && p.owner==="P" && p.kind==="K");
-    if(!eK){
-      endGame("P", "勝利。相手のKを取った。");
-      return true;
-    }
-    if(!pK){
-      endGame("E", "敗北。あなたのKが取られた。");
-      return true;
-    }
+    if(!eK){ endGame("P", "勝利。相手のKを取った。"); return true; }
+    if(!pK){ endGame("E", "敗北。あなたのKが取られた。"); return true; }
     return false;
   }
-
   function endGame(winner, msg){
     state.ended = true;
-    state.winner = winner;
-    stopTimer();
     setPhase(PHASE.END);
-    if(winner==="P") logTag(msg, "tagGood");
-    else logTag(msg, "tagBad");
+    logTag(msg, winner==="P" ? "tagGood" : "tagBad");
   }
 
-  // オートAI：1駒の最善手を選ぶ
   function chooseAutoMove(piece){
     const legal = getLegalMoves(piece);
     if(!legal.length) return null;
@@ -619,52 +547,65 @@
     const enemyK = state.pieces.find(p => p.alive && p.owner===enemyOf(piece.owner) && p.kind==="K");
     if(!enemyK) return null;
 
-    // スコア：Kを取れる>取れる>近づく
-    const scored = legal.map(m => {
+    // スコア：Kを取れる > 取れる > 近づく
+    let bestScore = -Infinity;
+    let best = [];
+    for(const m of legal){
       const t = pieceAt(m.x,m.y);
       let score = 0;
       if(t && t.owner!==piece.owner){
         score += (t.kind==="K") ? 10000 : 1000;
       }
       const d = Math.abs(m.x - enemyK.x) + Math.abs(m.y - enemyK.y);
-      score += (100 - d); // 近いほど少し高い
-      return {m, score};
-    });
-
-    scored.sort((a,b)=>b.score-a.score);
-    const bestScore = scored[0].score;
-    const best = scored.filter(s => s.score===bestScore);
-    return best[Math.floor(Math.random()*best.length)].m;
+      score += (100 - d);
+      if(score > bestScore){
+        bestScore = score;
+        best = [m];
+      } else if(score === bestScore){
+        best.push(m);
+      }
+    }
+    return best[Math.floor(Math.random()*best.length)];
   }
 
-  // 1軍の全駒を順番に動かす（Kは除外）
   async function autoMoveSide(owner){
-    const order = piecesOf(owner)
+    const list = piecesOf(owner)
       .filter(p => p.kind!=="K")
-      // 安定した順番（上→下、左→右）
       .sort((a,b)=> (a.y-b.y) || (a.x-b.x));
 
-    for(const p of order){
+    if(list.length===0){
+      logMsg(`${owner==="P"?"あなた":"相手"}：動かせる駒（K以外）がありません。`);
+      return;
+    }
+
+    let moved = 0;
+    for(const p of list){
       if(state.ended) return;
       if(!p.alive) continue;
 
       const move = chooseAutoMove(p);
-      if(move){
-        performMove(p, move.x, move.y);
-        if(checkWin()) return;
-        await sleep(220);
+      if(!move){
+        logMsg(`${owner==="P"?"あなた":"相手"}：${PIECE[p.kind].label} は動けません。`);
+        continue;
       }
+      performMove(p, move.x, move.y);
+      moved++;
+      if(checkWin()) return;
+      await sleep(220);
+    }
+    if(moved===0){
+      logMsg(`${owner==="P"?"あなた":"相手"}：このターンは全駒が移動不能でした。`);
     }
   }
 
   function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-  // 介入タイマー（今回はスキップのみ）
   function startTimer(){
     stopTimer();
     state.intervene.left = 3;
     state.intervene.locked = false;
     timerEl.textContent = String(state.intervene.left);
+
     state.intervene.tick = setInterval(() => {
       if(state.ended) return;
       if(state.phase !== PHASE.INTERVENE) return;
@@ -675,7 +616,7 @@
       if(state.intervene.left <= 0){
         state.intervene.locked = true;
         logMsg("スキップ（自動）。");
-        proceedTurn();
+        proceedTurnSafe();
       }
     }, 1000);
   }
@@ -688,23 +629,28 @@
 
   async function proceedTurn(){
     stopTimer();
-
-    // あなた側オート
-    setPhase(PHASE.AUTO_PLAYER);
+    setPhase(PHASE.AUTO_P);
     await autoMoveSide("P");
     if(state.ended) return;
 
-    // 相手側オート
-    setPhase(PHASE.AUTO_ENEMY);
+    setPhase(PHASE.AUTO_E);
     await autoMoveSide("E");
     if(state.ended) return;
 
-    // 次ターン
     state.turn += 1;
     setPhase(PHASE.INTERVENE);
   }
 
-  // ボタン
+  // ★ここが v2.0.1 の安全化ポイント：エラーが出てもログに出して止める
+  function proceedTurnSafe(){
+    proceedTurn().catch(err => {
+      console.error(err);
+      logTag("JSエラーで停止しました：コンソールも確認してください", "tagBad");
+      logTag(String(err?.message || err), "tagBad");
+    });
+  }
+
+  // Buttons
   btnReset.addEventListener("click", () => init());
 
   btnStart.addEventListener("click", () => {
@@ -721,9 +667,10 @@
   btnSkip.addEventListener("click", () => {
     if(state.phase !== PHASE.INTERVENE) return;
     logMsg("スキップ。");
-    proceedTurn();
+    proceedTurnSafe();
   });
 
+  // 起動
   init();
 })();
 </script>
