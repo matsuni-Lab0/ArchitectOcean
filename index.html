@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.0.3（両軍オート検証）</title>
+  <title>Project AO 前庭仕様 v2.0.4（両軍オート検証）</title>
   <style>
     :root{
       --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
@@ -182,7 +182,7 @@
 <div class="wrap">
   <div class="top">
     <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.0.3（視認性強化：セル＋移動先ガイド）</h1>
+      <h1>Project AO：前庭仕様 v2.0.4（視認性復元：セル＋移動先ガイド）</h1>
       <div class="row">
         <div class="pill">状態：<b id="state">準備中</b></div>
         <div class="pill">ターン：<b id="turn">1</b></div>
@@ -201,9 +201,9 @@
     <div class="card hud" style="flex:1 1 320px;">
       <h1>検証ポイント</h1>
       <div class="small">
-        ・いま動いている駒の<strong>マス</strong>が強調されるか<br/>
-        ・移動先（次のマス）が点滅ガイドで見えるか<br/>
-        ・ログにも「いま動く駒」を出して取りこぼしを防ぐ<br/>
+        ・いま動く駒：太枠＋発光（セル）<br/>
+        ・移動先：点線＋点滅（セル）<br/>
+        ・ログ：「いま動く：あなた □」を毎回出す<br/>
       </div>
     </div>
   </div>
@@ -274,9 +274,10 @@
   const ENEMY_ROW = 0;
   const KING_COL = 2;
 
+  // ★調整（視認性を上げるため、少しゆっくり）
   const INTERVENE_SECONDS = 5;
-  const PREVIEW_MS = 350;     // v2.0.3：視認性のため少し延長
-  const AFTER_MOVE_MS = 650;  // v2.0.3：余韻も少し延長
+  const PREVIEW_MS = 450;     // 移動前「見せる」時間
+  const AFTER_MOVE_MS = 750;  // 移動後「余韻」時間
 
   const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO_P:"AUTO_P", AUTO_E:"AUTO_E", END:"END" };
   const PIECE = { K:{label:"K"}, S:{label:"□"}, T:{label:"△"}, C:{label:"○"} };
@@ -310,6 +311,8 @@
       selectedStockKind: null,
       intervene: { left:0, tick:null, locked:false },
       log: [],
+      // ★ハイライト状態を保持（描画し直しても消えない）
+      ui: { activePieceId: null, target: null },
     };
 
     addPiece("P","K", KING_COL, PLAYER_ROW);
@@ -348,24 +351,46 @@
   }
   function cellEl(x,y){ return gridEl.children[y*SIZE + x] || null; }
 
+  // ★描画：毎回 ui 状態から「現在セル」「移動先セル」を復元する
   function renderGrid(){
+    // まず、セル内の駒だけ消す（セルのクラスはここでは消さない）
     [...gridEl.children].forEach(c => {
-      c.classList.remove("activeCell","targetCell");
       const old = c.querySelector(".ship");
       if(old) old.remove();
     });
+
+    // 一旦セルのハイライトを消してから、uiで付け直す（確実に同期）
+    [...gridEl.children].forEach(c => c.classList.remove("activeCell","targetCell"));
+
+    // 移動先セル（target）
+    if(state.ui?.target){
+      const t = state.ui.target;
+      const tc = cellEl(t.x, t.y);
+      if(tc) tc.classList.add("targetCell");
+    }
+
+    // 駒描画 ＋ 現在駒（activePieceId）の復元
     for(const p of state.pieces){
       if(!p.alive) continue;
       const cell = cellEl(p.x,p.y);
       if(!cell) continue;
+
       const ship = document.createElement("div");
       ship.className = "ship " + (p.owner==="P" ? "pShip":"eShip");
       ship.textContent = PIECE[p.kind].label;
+
       const tag = document.createElement("div");
       tag.className = "tag";
       tag.textContent = (p.owner==="P" ? "あなた":"相手");
       ship.appendChild(tag);
+
       cell.appendChild(ship);
+
+      // active
+      if(state.ui?.activePieceId && state.ui.activePieceId === p.id){
+        ship.classList.add("active");
+        cell.classList.add("activeCell");
+      }
     }
   }
 
@@ -396,7 +421,7 @@
   }
   function renderLog(){
     logEl.innerHTML = "";
-    state.log.slice(-200).forEach(line => {
+    state.log.slice(-220).forEach(line => {
       const p = document.createElement("p");
       p.innerHTML = line;
       logEl.appendChild(p);
@@ -415,24 +440,17 @@
   function logTag(msg, cls){ state.log.push(`<span class="${cls}">${esc(msg)}</span>`); renderLog(); }
 
   function clearHighlights(){
-    document.querySelectorAll(".ship.active").forEach(n => n.classList.remove("active"));
-    document.querySelectorAll(".cell.activeCell").forEach(n => n.classList.remove("activeCell"));
-    document.querySelectorAll(".cell.targetCell").forEach(n => n.classList.remove("targetCell"));
+    state.ui.activePieceId = null;
+    state.ui.target = null;
+    renderGrid();
   }
-
   function highlightCurrent(piece){
-    clearHighlights();
-    const cell = cellEl(piece.x, piece.y);
-    if(!cell) return;
-    cell.classList.add("activeCell");
-    const ship = cell.querySelector(".ship");
-    if(ship) ship.classList.add("active");
+    state.ui.activePieceId = piece.id;
+    renderGrid();
   }
-
   function highlightTarget(x,y){
-    const cell = cellEl(x,y);
-    if(!cell) return;
-    cell.classList.add("targetCell");
+    state.ui.target = {x,y};
+    renderGrid();
   }
 
   function setPhase(phase){
@@ -577,7 +595,7 @@
       logMsg(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が移動`);
     }
     piece.x = toX; piece.y = toY;
-    renderAll();
+    renderAll(); // ここで描画し直しても、uiからハイライトが復元される
   }
 
   function checkWin(){
@@ -630,18 +648,17 @@
       return;
     }
 
-    let moved = 0;
     for(const p of list){
       if(state.ended) return;
       if(!p.alive) continue;
 
-      // ★「今動く」ログ（見逃し対策）
+      // いま動くログ（見逃し対策）
       logTag(`いま動く：${owner==="P"?"あなた":"相手"} ${PIECE[p.kind].label}`, "tagWarn");
 
-      // ★現在位置の強ハイライト
+      // 現在位置を強調
       highlightCurrent(p);
 
-      // ★移動先を先に計算して点滅表示
+      // 移動先を計算して点滅ガイド
       const move = chooseAutoMove(p);
       if(!move){
         await sleep(PREVIEW_MS);
@@ -650,23 +667,19 @@
         clearHighlights();
         continue;
       }
+
       highlightTarget(move.x, move.y);
 
-      // ★予告時間（点滅を見せる）
+      // 予告時間（見せる）
       await sleep(PREVIEW_MS);
 
-      // ★実移動
+      // 実移動
       performMove(p, move.x, move.y);
-      moved++;
       if(checkWin()) return;
 
-      // ★移動後の余韻
+      // 余韻
       await sleep(AFTER_MOVE_MS);
       clearHighlights();
-    }
-
-    if(moved===0){
-      logMsg(`${owner==="P"?"あなた":"相手"}：このターンは全駒が移動不能でした。`);
     }
   }
 
@@ -723,6 +736,7 @@
     });
   }
 
+  // Buttons
   btnReset.addEventListener("click", () => init());
 
   btnStart.addEventListener("click", () => {
