@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.0.1（両軍オート検証）</title>
+  <title>Project AO 前庭仕様 v2.0.2（両軍オート検証）</title>
   <style>
     :root{
       --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
@@ -93,6 +93,13 @@
     .pShip{color:#d8ebff;}
     .eShip{color:#ffd9f2;}
 
+    /* ★今動いている駒のハイライト */
+    .ship.active{
+      outline: 3px solid rgba(255, 211, 125, .95);
+      box-shadow: 0 0 0 6px rgba(255, 211, 125, .18), 0 0 30px rgba(255, 211, 125, .25);
+      border-radius: 10px;
+    }
+
     .side{padding:14px;}
     .side h2{margin:0 0 10px; font-size:14px; color:#d9e6ff;}
     .btnRow{display:flex; gap:10px; flex-wrap:wrap;}
@@ -149,12 +156,6 @@
     .tagGood{color: var(--good); font-weight:1000}
     .tagBad{color: var(--bad); font-weight:1000}
     .tagWarn{color: var(--warn); font-weight:1000}
-/* ★今動いている駒のハイライト */
-  .ship.active{
-  outline: 3px solid rgba(255, 211, 125, .95);
-  box-shadow: 0 0 0 6px rgba(255, 211, 125, .18), 0 0 30px rgba(255, 211, 125, .25);
-  border-radius: 10px;
-}
   </style>
 </head>
 
@@ -162,11 +163,11 @@
 <div class="wrap">
   <div class="top">
     <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.0.1（両軍オート成立チェック）</h1>
+      <h1>Project AO：前庭仕様 v2.0.2（介入5秒／移動ゆっくり／駒ハイライト）</h1>
       <div class="row">
         <div class="pill">状態：<b id="state">準備中</b></div>
         <div class="pill">ターン：<b id="turn">1</b></div>
-        <div class="pill">介入：<b>3秒</b></div>
+        <div class="pill">介入：<b>5秒</b></div>
       </div>
 
       <div class="phase">
@@ -181,8 +182,9 @@
     <div class="card hud" style="flex:1 1 320px;">
       <h1>検証ポイント</h1>
       <div class="small">
-        ・「スキップ」または3秒放置で、両軍の駒がオートで動くか<br/>
-        ・動けない場合はログに理由が出るか（v2.0.1で強化）<br/>
+        ・「スキップ」または5秒放置で、両軍の駒がオートで動くか<br/>
+        ・いま動いている駒がハイライト表示されるか<br/>
+        ・速度が見やすいか（予告250ms＋移動後500ms）<br/>
       </div>
     </div>
   </div>
@@ -253,6 +255,11 @@
   const PLAYER_ROW = 4;
   const ENEMY_ROW = 0;
   const KING_COL = 2;
+
+  // ★調整パラメータ（ここを触るだけで速度変更できます）
+  const INTERVENE_SECONDS = 5;     // 介入時間：5秒
+  const PREVIEW_MS = 250;          // 動く直前の「予告」時間
+  const AFTER_MOVE_MS = 500;       // 移動後の余韻（＝実質スピード）
 
   const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO_P:"AUTO_P", AUTO_E:"AUTO_E", END:"END" };
   const PIECE = { K:{label:"K"}, S:{label:"□"}, T:{label:"△"}, C:{label:"○"} };
@@ -344,20 +351,6 @@
     }
   }
 
-  function clearActive(){
-  document.querySelectorAll(".ship.active").forEach(n => n.classList.remove("active"));
-}
-
-function setActivePiece(piece){
-  clearActive();
-  const cell = cellEl(piece.x, piece.y);
-  if(!cell) return;
-  const ship = cell.querySelector(".ship");
-  if(ship) ship.classList.add("active");
-}
-
-
-  
   function renderPalette(){
     paletteEl.innerHTML = "";
     const items = [
@@ -403,9 +396,21 @@ function setActivePiece(piece){
   function logMsg(msg){ state.log.push(esc(msg)); renderLog(); }
   function logTag(msg, cls){ state.log.push(`<span class="${cls}">${esc(msg)}</span>`); renderLog(); }
 
+  function clearActive(){
+    document.querySelectorAll(".ship.active").forEach(n => n.classList.remove("active"));
+  }
+  function setActivePiece(piece){
+    clearActive();
+    const cell = cellEl(piece.x, piece.y);
+    if(!cell) return;
+    const ship = cell.querySelector(".ship");
+    if(ship) ship.classList.add("active");
+  }
+
   function setPhase(phase){
     state.phase = phase;
     stopTimer();
+    clearActive();
 
     if(phase===PHASE.PLACE){
       phaseNameEl.textContent = "配置する";
@@ -417,9 +422,9 @@ function setActivePiece(piece){
       btnSkip.disabled = true;
     } else if(phase===PHASE.INTERVENE){
       phaseNameEl.textContent = "介入する？";
-      timerEl.textContent = "5";
+      timerEl.textContent = String(INTERVENE_SECONDS);
       phaseSubEl.textContent = "5秒で選んで。何もしなくても両軍はオートで動く。（試作：スキップのみ）";
-      helpTextEl.textContent = "介入：スキップで次へ。3秒放置でも自動スキップ。";
+      helpTextEl.textContent = "介入：スキップで次へ。5秒放置でも自動スキップ。";
       panelPlacement.style.display = "none";
       btnStart.disabled = true;
       btnSkip.disabled = false;
@@ -604,23 +609,21 @@ function setActivePiece(piece){
       if(!p.alive) continue;
 
       setActivePiece(p);
-await sleep(250); // ★「今この駒が動く」予告（好みで調整）
+      await sleep(PREVIEW_MS);
 
-const move = chooseAutoMove(p);
-if(!move){
-  logMsg(`${owner==="P"?"あなた":"相手"}：${PIECE[p.kind].label} は動けません。`);
-  await sleep(350);
-  clearActive();
-  continue;
-}
+      const move = chooseAutoMove(p);
+      if(!move){
+        logMsg(`${owner==="P"?"あなた":"相手"}：${PIECE[p.kind].label} は動けません。`);
+        await sleep(Math.max(200, AFTER_MOVE_MS * 0.7));
+        clearActive();
+        continue;
+      }
+      performMove(p, move.x, move.y);
+      moved++;
+      if(checkWin()) return;
 
-performMove(p, move.x, move.y);
-moved++;
-if(checkWin()) return;
-
-await sleep(500); // ★移動後の余韻（速度調整ポイント）
-clearActive();
-
+      await sleep(AFTER_MOVE_MS);
+      clearActive();
     }
     if(moved===0){
       logMsg(`${owner==="P"?"あなた":"相手"}：このターンは全駒が移動不能でした。`);
@@ -631,7 +634,7 @@ clearActive();
 
   function startTimer(){
     stopTimer();
-    state.intervene.left = 5;
+    state.intervene.left = INTERVENE_SECONDS;
     state.intervene.locked = false;
     timerEl.textContent = String(state.intervene.left);
 
@@ -658,6 +661,8 @@ clearActive();
 
   async function proceedTurn(){
     stopTimer();
+    clearActive();
+
     setPhase(PHASE.AUTO_P);
     await autoMoveSide("P");
     if(state.ended) return;
@@ -670,7 +675,6 @@ clearActive();
     setPhase(PHASE.INTERVENE);
   }
 
-  // ★ここが v2.0.1 の安全化ポイント：エラーが出てもログに出して止める
   function proceedTurnSafe(){
     proceedTurn().catch(err => {
       console.error(err);
@@ -699,10 +703,8 @@ clearActive();
     proceedTurnSafe();
   });
 
-  // 起動
   init();
 })();
 </script>
 </body>
 </html>
-
