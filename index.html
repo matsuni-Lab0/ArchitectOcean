@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.0.4（両軍オート検証）</title>
+  <title>Project AO 前庭仕様 v2.1.0（交互オート＋介入拡張フック）</title>
   <style>
     :root{
       --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
@@ -67,14 +67,14 @@
       cursor:pointer;
     }
 
-    /* ★現在位置セルの強ハイライト */
+    /* 現在位置セルの強ハイライト */
     .cell.activeCell{
       border:3px solid rgba(255, 211, 125, .95);
       box-shadow: 0 0 0 7px rgba(255, 211, 125, .18), 0 0 35px rgba(255, 211, 125, .22);
       transform: translateY(-1px);
     }
 
-    /* ★移動先セルの点滅ガイド */
+    /* 移動先セルの点滅ガイド */
     @keyframes pulseTarget{
       0%   { box-shadow: 0 0 0 0 rgba(106,167,255,.0); opacity: .95; }
       50%  { box-shadow: 0 0 0 10px rgba(106,167,255,.22); opacity: 1; }
@@ -112,7 +112,7 @@
     .pShip{color:#d8ebff;}
     .eShip{color:#ffd9f2;}
 
-    /* ★駒自体のハイライト（補助） */
+    /* 駒自体のハイライト（補助） */
     .ship.active{
       outline: 3px solid rgba(255, 211, 125, .95);
       box-shadow: 0 0 0 6px rgba(255, 211, 125, .18), 0 0 30px rgba(255, 211, 125, .25);
@@ -182,11 +182,11 @@
 <div class="wrap">
   <div class="top">
     <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.0.4（視認性復元：セル＋移動先ガイド）</h1>
+      <h1>Project AO：前庭仕様 v2.1.0（交互オート＋介入拡張フック）</h1>
       <div class="row">
         <div class="pill">状態：<b id="state">準備中</b></div>
         <div class="pill">ターン：<b id="turn">1</b></div>
-        <div class="pill">介入：<b>5秒</b></div>
+        <div class="pill">介入：<b>5秒</b>（ターン1回）</div>
       </div>
 
       <div class="phase">
@@ -199,11 +199,14 @@
     </div>
 
     <div class="card hud" style="flex:1 1 320px;">
-      <h1>検証ポイント</h1>
+      <h1>視認性</h1>
       <div class="small">
         ・いま動く駒：太枠＋発光（セル）<br/>
         ・移動先：点線＋点滅（セル）<br/>
-        ・ログ：「いま動く：あなた □」を毎回出す<br/>
+        ・ログ：「いま動く：あなた □」を毎回出す
+      </div>
+      <div class="small" style="margin-top:10px;">
+        ※ v2.1.0：オートは <b>交互（あなた1手→相手1手）</b>。
       </div>
     </div>
   </div>
@@ -214,7 +217,7 @@
         <div class="legend">
           盤面：5×5（上＝相手陣／下＝自陣）<br/>
           駒：<b>□</b>（前後1） / <b>△</b>（斜め4） / <b>○</b>（前+斜め前2） / <b>K</b>（固定）<br/>
-          操作：配置中のみ「駒を選ぶ → 最下段をクリック」。対戦中はオート進行。
+          勝利：相手のKを取ったら勝ち（取った駒は今は再利用不可）
         </div>
         <div class="legend">
           表示：<b>あなた</b>＝青 / <b>相手</b>＝桃
@@ -248,19 +251,18 @@
       </div>
 
       <div class="panel">
-        <div class="panelTitle">
-          <div class="t">ヘルプ</div>
-        </div>
-        <div class="small" id="helpText" style="margin-top:8px">
-          配置が終わったら「開始」を押してください。
+        <div class="panelTitle"><div class="t">介入（拡張設計）</div></div>
+        <div class="small" style="margin-top:8px">
+          現状：ターン1回（スキップのみ）<br/>
+          将来：カード効果で「都度介入（割り込み）」を解放できるフックを実装済み。
         </div>
       </div>
 
       <div class="panel">
         <div class="panelTitle"><div class="t">オートAI（簡易）</div></div>
         <div class="small" style="margin-top:8px">
-          ・優先：①Kを取れる ②何か取れる ③相手Kに近づく<br/>
-          ・同点はランダム選択。<br/>
+          優先：①Kを取れる ②何か取れる ③相手Kに近づく<br/>
+          同点はランダム。
         </div>
       </div>
     </div>
@@ -274,12 +276,12 @@
   const ENEMY_ROW = 0;
   const KING_COL = 2;
 
-  // ★調整（視認性を上げるため、少しゆっくり）
+  // 調整（視認性・テンポ）
   const INTERVENE_SECONDS = 5;
-  const PREVIEW_MS = 450;     // 移動前「見せる」時間
-  const AFTER_MOVE_MS = 750;  // 移動後「余韻」時間
+  const PREVIEW_MS = 450;
+  const AFTER_MOVE_MS = 750;
 
-  const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO_P:"AUTO_P", AUTO_E:"AUTO_E", END:"END" };
+  const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO:"AUTO", END:"END" };
   const PIECE = { K:{label:"K"}, S:{label:"□"}, T:{label:"△"}, C:{label:"○"} };
   const forwardDelta = (owner)=> owner==="P" ? -1 : 1;
   const enemyOf = (owner)=> owner==="P" ? "E" : "P";
@@ -298,7 +300,6 @@
   const phaseNameEl = el("phaseName");
   const phaseSubEl = el("phaseSub");
   const timerEl = el("timer");
-  const helpTextEl = el("helpText");
   const panelPlacement = el("panelPlacement");
 
   function init(){
@@ -306,12 +307,24 @@
       phase: PHASE.PLACE,
       turn: 1,
       ended: false,
+
       pieces: [],
       stock: { S:2, T:1, C:1 },
       selectedStockKind: null,
+
       intervene: { left:0, tick:null, locked:false },
+
+      // 交互オート進行用
+      auto: { index: 0, queue: [], side: "P" },
+
+      // 将来：割り込み介入（都度介入）拡張のためのフック
+      interrupt: {
+        enabled: false,            // ← 将来カードで true にする想定（現状 false）
+        maxPerTurn: 1,             // 1ターン最大何回まで都度介入を許すか
+        usedThisTurn: 0
+      },
+
       log: [],
-      // ★ハイライト状態を保持（描画し直しても消えない）
       ui: { activePieceId: null, target: null },
     };
 
@@ -351,25 +364,19 @@
   }
   function cellEl(x,y){ return gridEl.children[y*SIZE + x] || null; }
 
-  // ★描画：毎回 ui 状態から「現在セル」「移動先セル」を復元する
   function renderGrid(){
-    // まず、セル内の駒だけ消す（セルのクラスはここでは消さない）
     [...gridEl.children].forEach(c => {
       const old = c.querySelector(".ship");
       if(old) old.remove();
     });
-
-    // 一旦セルのハイライトを消してから、uiで付け直す（確実に同期）
     [...gridEl.children].forEach(c => c.classList.remove("activeCell","targetCell"));
 
-    // 移動先セル（target）
     if(state.ui?.target){
       const t = state.ui.target;
       const tc = cellEl(t.x, t.y);
       if(tc) tc.classList.add("targetCell");
     }
 
-    // 駒描画 ＋ 現在駒（activePieceId）の復元
     for(const p of state.pieces){
       if(!p.alive) continue;
       const cell = cellEl(p.x,p.y);
@@ -386,7 +393,6 @@
 
       cell.appendChild(ship);
 
-      // active
       if(state.ui?.activePieceId && state.ui.activePieceId === p.id){
         ship.classList.add("active");
         cell.classList.add("activeCell");
@@ -409,7 +415,6 @@
         if(state.phase !== PHASE.PLACE) return;
         state.selectedStockKind = it.kind;
         renderPalette();
-        helpTextEl.textContent = `配置：${it.label} を選択中。自陣（最下段）の空きマスをクリックして配置します。`;
       });
       paletteEl.appendChild(btn);
     }
@@ -462,36 +467,26 @@
       phaseNameEl.textContent = "配置する";
       timerEl.textContent = "—";
       phaseSubEl.textContent = "自陣（最下段）に □×2 / △×1 / ○×1 を配置して、開始を押してください。Kは中央固定です。";
-      helpTextEl.textContent = "配置：駒を選び、自陣（最下段）のマスをクリックして置いてください。";
       panelPlacement.style.display = "block";
       btnStart.disabled = !isPlacementReady();
       btnSkip.disabled = true;
     } else if(phase===PHASE.INTERVENE){
-      phaseNameEl.textContent = "介入する？";
+      phaseNameEl.textContent = "介入する？（ターン1回）";
       timerEl.textContent = String(INTERVENE_SECONDS);
-      phaseSubEl.textContent = "5秒で選んで。何もしなくても両軍はオートで動く。（試作：スキップのみ）";
-      helpTextEl.textContent = "介入：スキップで次へ。5秒放置でも自動スキップ。";
+      phaseSubEl.textContent = "5秒で判断。今はスキップのみ。将来カードで都度介入（割り込み）解放予定。";
       panelPlacement.style.display = "none";
       btnStart.disabled = true;
       btnSkip.disabled = false;
       startTimer();
-    } else if(phase===PHASE.AUTO_P){
-      phaseNameEl.textContent = "あなたの駒が動く（オート）";
+    } else if(phase===PHASE.AUTO){
+      phaseNameEl.textContent = "オート進行（交互：あなた→相手）";
       timerEl.textContent = "—";
-      phaseSubEl.textContent = "あなたのK以外の駒が順に動きます。";
-      helpTextEl.textContent = "オート進行中…";
-      btnSkip.disabled = true;
-    } else if(phase===PHASE.AUTO_E){
-      phaseNameEl.textContent = "相手の駒が動く（オート）";
-      timerEl.textContent = "—";
-      phaseSubEl.textContent = "相手のK以外の駒が順に動きます。";
-      helpTextEl.textContent = "オート進行中…";
+      phaseSubEl.textContent = "1手ずつ交互に動きます。";
       btnSkip.disabled = true;
     } else if(phase===PHASE.END){
       phaseNameEl.textContent = "結果";
       timerEl.textContent = "—";
       phaseSubEl.textContent = "";
-      helpTextEl.textContent = "リセットで最初からやり直せます。";
       btnStart.disabled = true;
       btnSkip.disabled = true;
     }
@@ -510,7 +505,7 @@
     }
     const here = pieceAt(x,y);
     if(here && here.kind==="K"){
-      logMsg("配置：Kは固定です。ほかのマスに配置してください。");
+      logMsg("配置：Kは固定です。");
       return;
     }
     // 回収
@@ -590,12 +585,12 @@
     const target = pieceAt(toX,toY);
     if(target && target.owner!==piece.owner){
       target.alive = false;
-      logTag(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が ${PIECE[target.kind].label} を制覇（取った）`, "tagWarn");
+      logTag(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が ${PIECE[target.kind].label} を制覇`, "tagWarn");
     } else {
       logMsg(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が移動`);
     }
     piece.x = toX; piece.y = toY;
-    renderAll(); // ここで描画し直しても、uiからハイライトが復元される
+    renderAll();
   }
 
   function checkWin(){
@@ -638,52 +633,114 @@
     return best[Math.floor(Math.random()*best.length)];
   }
 
-  async function autoMoveSide(owner){
-    const list = piecesOf(owner)
-      .filter(p => p.kind!=="K")
-      .sort((a,b)=> (a.y-b.y) || (a.x-b.x));
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-    if(list.length===0){
-      logMsg(`${owner==="P"?"あなた":"相手"}：動かせる駒（K以外）がありません。`);
+  // ====== 交互オートのキモ：ターン開始時に「動く順番キュー」を作る ======
+  function buildInterleavedQueue(){
+    // K以外を座標順にして、交互に並べる（長さが違っても交互に詰める）
+    const pList = piecesOf("P").filter(p => p.kind!=="K").sort((a,b)=> (a.y-b.y)||(a.x-b.x));
+    const eList = piecesOf("E").filter(p => p.kind!=="K").sort((a,b)=> (a.y-b.y)||(a.x-b.x));
+
+    const q = [];
+    const n = Math.max(pList.length, eList.length);
+    for(let i=0;i<n;i++){
+      if(pList[i]) q.push(pList[i].id);
+      if(eList[i]) q.push(eList[i].id);
+    }
+    return q;
+  }
+  function getPieceById(id){
+    return state.pieces.find(p => p.id===id && p.alive) || null;
+  }
+
+  // ====== 将来拡張：割り込み介入（都度介入）フック ======
+  // 現状は enabled=false なので一切呼ばれません。
+  function shouldOfferInterruptIntervene(){
+    if(!state.interrupt.enabled) return false;
+    if(state.interrupt.usedThisTurn >= state.interrupt.maxPerTurn) return false;
+    // 例：戦闘が起きる直前 / Kが危ない直前 などの条件はここに積む
+    return true;
+  }
+  async function runInterruptInterveneIfNeeded(){
+    if(!shouldOfferInterruptIntervene()) return;
+    state.interrupt.usedThisTurn += 1;
+    // ここで「3秒都度介入」画面を出す、など将来拡張
+    // 現状は未実装なのでログだけ（デバッグ用）
+    logTag("（将来拡張）割り込み介入チャンス", "tagWarn");
+  }
+
+  async function doOneAutoMoveById(pieceId){
+    const piece = getPieceById(pieceId);
+    if(!piece) return;
+
+    logTag(`いま動く：${piece.owner==="P"?"あなた":"相手"} ${PIECE[piece.kind].label}`, "tagWarn");
+    highlightCurrent(piece);
+
+    const move = chooseAutoMove(piece);
+    if(!move){
+      await sleep(PREVIEW_MS);
+      logMsg(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} は動けません。`);
+      await sleep(AFTER_MOVE_MS);
+      clearHighlights();
       return;
     }
 
-    for(const p of list){
+    highlightTarget(move.x, move.y);
+    await sleep(PREVIEW_MS);
+
+    // 将来：ここで「戦闘直前の割り込み介入」を入れたくなったらここが差し込みポイント
+    // （例：移動先に相手駒がいるなら…など）
+    await runInterruptInterveneIfNeeded();
+
+    performMove(piece, move.x, move.y);
+    if(checkWin()) return;
+
+    await sleep(AFTER_MOVE_MS);
+    clearHighlights();
+  }
+
+  async function runAutoTurnInterleaved(){
+    setPhase(PHASE.AUTO);
+
+    // ターン開始：割り込み介入カウンタをリセット
+    state.interrupt.usedThisTurn = 0;
+
+    // このターンで動く順番（交互）を確定
+    state.auto.queue = buildInterleavedQueue();
+    state.auto.index = 0;
+
+    if(state.auto.queue.length === 0){
+      logMsg("動かせる駒（K以外）がありません。");
+      return;
+    }
+
+    while(state.auto.index < state.auto.queue.length){
       if(state.ended) return;
-      if(!p.alive) continue;
-
-      // いま動くログ（見逃し対策）
-      logTag(`いま動く：${owner==="P"?"あなた":"相手"} ${PIECE[p.kind].label}`, "tagWarn");
-
-      // 現在位置を強調
-      highlightCurrent(p);
-
-      // 移動先を計算して点滅ガイド
-      const move = chooseAutoMove(p);
-      if(!move){
-        await sleep(PREVIEW_MS);
-        logMsg(`${owner==="P"?"あなた":"相手"}：${PIECE[p.kind].label} は動けません。`);
-        await sleep(AFTER_MOVE_MS);
-        clearHighlights();
-        continue;
-      }
-
-      highlightTarget(move.x, move.y);
-
-      // 予告時間（見せる）
-      await sleep(PREVIEW_MS);
-
-      // 実移動
-      performMove(p, move.x, move.y);
-      if(checkWin()) return;
-
-      // 余韻
-      await sleep(AFTER_MOVE_MS);
-      clearHighlights();
+      const id = state.auto.queue[state.auto.index];
+      state.auto.index += 1;
+      await doOneAutoMoveById(id);
     }
   }
 
-  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+  async function proceedTurn(){
+    stopTimer();
+    clearHighlights();
+
+    // ここが「ターン1回介入」→「交互オート」→ 次ターンへ
+    await runAutoTurnInterleaved();
+    if(state.ended) return;
+
+    state.turn += 1;
+    setPhase(PHASE.INTERVENE);
+  }
+
+  function proceedTurnSafe(){
+    proceedTurn().catch(err => {
+      console.error(err);
+      logTag("JSエラーで停止しました：コンソールも確認してください", "tagBad");
+      logTag(String(err?.message || err), "tagBad");
+    });
+  }
 
   function startTimer(){
     stopTimer();
@@ -710,30 +767,6 @@
       clearInterval(state.intervene.tick);
       state.intervene.tick = null;
     }
-  }
-
-  async function proceedTurn(){
-    stopTimer();
-    clearHighlights();
-
-    setPhase(PHASE.AUTO_P);
-    await autoMoveSide("P");
-    if(state.ended) return;
-
-    setPhase(PHASE.AUTO_E);
-    await autoMoveSide("E");
-    if(state.ended) return;
-
-    state.turn += 1;
-    setPhase(PHASE.INTERVENE);
-  }
-
-  function proceedTurnSafe(){
-    proceedTurn().catch(err => {
-      console.error(err);
-      logTag("JSエラーで停止しました：コンソールも確認してください", "tagBad");
-      logTag(String(err?.message || err), "tagBad");
-    });
   }
 
   // Buttons
