@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.0.2（両軍オート検証）</title>
+  <title>Project AO 前庭仕様 v2.0.3（両軍オート検証）</title>
   <style>
     :root{
       --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
@@ -66,6 +66,25 @@
       overflow:hidden;
       cursor:pointer;
     }
+
+    /* ★現在位置セルの強ハイライト */
+    .cell.activeCell{
+      border:3px solid rgba(255, 211, 125, .95);
+      box-shadow: 0 0 0 7px rgba(255, 211, 125, .18), 0 0 35px rgba(255, 211, 125, .22);
+      transform: translateY(-1px);
+    }
+
+    /* ★移動先セルの点滅ガイド */
+    @keyframes pulseTarget{
+      0%   { box-shadow: 0 0 0 0 rgba(106,167,255,.0); opacity: .95; }
+      50%  { box-shadow: 0 0 0 10px rgba(106,167,255,.22); opacity: 1; }
+      100% { box-shadow: 0 0 0 0 rgba(106,167,255,.0); opacity: .95; }
+    }
+    .cell.targetCell{
+      border:2px dashed rgba(106,167,255,.95);
+      animation: pulseTarget .8s ease-in-out infinite;
+    }
+
     .marker{
       position:absolute; left:8px; top:8px;
       font-size:10px; color:rgba(231,238,252,.88);
@@ -93,7 +112,7 @@
     .pShip{color:#d8ebff;}
     .eShip{color:#ffd9f2;}
 
-    /* ★今動いている駒のハイライト */
+    /* ★駒自体のハイライト（補助） */
     .ship.active{
       outline: 3px solid rgba(255, 211, 125, .95);
       box-shadow: 0 0 0 6px rgba(255, 211, 125, .18), 0 0 30px rgba(255, 211, 125, .25);
@@ -163,7 +182,7 @@
 <div class="wrap">
   <div class="top">
     <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.0.2（介入5秒／移動ゆっくり／駒ハイライト）</h1>
+      <h1>Project AO：前庭仕様 v2.0.3（視認性強化：セル＋移動先ガイド）</h1>
       <div class="row">
         <div class="pill">状態：<b id="state">準備中</b></div>
         <div class="pill">ターン：<b id="turn">1</b></div>
@@ -182,9 +201,9 @@
     <div class="card hud" style="flex:1 1 320px;">
       <h1>検証ポイント</h1>
       <div class="small">
-        ・「スキップ」または5秒放置で、両軍の駒がオートで動くか<br/>
-        ・いま動いている駒がハイライト表示されるか<br/>
-        ・速度が見やすいか（予告250ms＋移動後500ms）<br/>
+        ・いま動いている駒の<strong>マス</strong>が強調されるか<br/>
+        ・移動先（次のマス）が点滅ガイドで見えるか<br/>
+        ・ログにも「いま動く駒」を出して取りこぼしを防ぐ<br/>
       </div>
     </div>
   </div>
@@ -240,7 +259,6 @@
       <div class="panel">
         <div class="panelTitle"><div class="t">オートAI（簡易）</div></div>
         <div class="small" style="margin-top:8px">
-          ・各ターン、K以外の駒が順に1回ずつ動きます。<br/>
           ・優先：①Kを取れる ②何か取れる ③相手Kに近づく<br/>
           ・同点はランダム選択。<br/>
         </div>
@@ -256,10 +274,9 @@
   const ENEMY_ROW = 0;
   const KING_COL = 2;
 
-  // ★調整パラメータ（ここを触るだけで速度変更できます）
-  const INTERVENE_SECONDS = 5;     // 介入時間：5秒
-  const PREVIEW_MS = 250;          // 動く直前の「予告」時間
-  const AFTER_MOVE_MS = 500;       // 移動後の余韻（＝実質スピード）
+  const INTERVENE_SECONDS = 5;
+  const PREVIEW_MS = 350;     // v2.0.3：視認性のため少し延長
+  const AFTER_MOVE_MS = 650;  // v2.0.3：余韻も少し延長
 
   const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO_P:"AUTO_P", AUTO_E:"AUTO_E", END:"END" };
   const PIECE = { K:{label:"K"}, S:{label:"□"}, T:{label:"△"}, C:{label:"○"} };
@@ -333,6 +350,7 @@
 
   function renderGrid(){
     [...gridEl.children].forEach(c => {
+      c.classList.remove("activeCell","targetCell");
       const old = c.querySelector(".ship");
       if(old) old.remove();
     });
@@ -378,7 +396,7 @@
   }
   function renderLog(){
     logEl.innerHTML = "";
-    state.log.slice(-160).forEach(line => {
+    state.log.slice(-200).forEach(line => {
       const p = document.createElement("p");
       p.innerHTML = line;
       logEl.appendChild(p);
@@ -396,21 +414,31 @@
   function logMsg(msg){ state.log.push(esc(msg)); renderLog(); }
   function logTag(msg, cls){ state.log.push(`<span class="${cls}">${esc(msg)}</span>`); renderLog(); }
 
-  function clearActive(){
+  function clearHighlights(){
     document.querySelectorAll(".ship.active").forEach(n => n.classList.remove("active"));
+    document.querySelectorAll(".cell.activeCell").forEach(n => n.classList.remove("activeCell"));
+    document.querySelectorAll(".cell.targetCell").forEach(n => n.classList.remove("targetCell"));
   }
-  function setActivePiece(piece){
-    clearActive();
+
+  function highlightCurrent(piece){
+    clearHighlights();
     const cell = cellEl(piece.x, piece.y);
     if(!cell) return;
+    cell.classList.add("activeCell");
     const ship = cell.querySelector(".ship");
     if(ship) ship.classList.add("active");
+  }
+
+  function highlightTarget(x,y){
+    const cell = cellEl(x,y);
+    if(!cell) return;
+    cell.classList.add("targetCell");
   }
 
   function setPhase(phase){
     state.phase = phase;
     stopTimer();
-    clearActive();
+    clearHighlights();
 
     if(phase===PHASE.PLACE){
       phaseNameEl.textContent = "配置する";
@@ -572,7 +600,6 @@
     const enemyK = state.pieces.find(p => p.alive && p.owner===enemyOf(piece.owner) && p.kind==="K");
     if(!enemyK) return null;
 
-    // スコア：Kを取れる > 取れる > 近づく
     let bestScore = -Infinity;
     let best = [];
     for(const m of legal){
@@ -608,23 +635,36 @@
       if(state.ended) return;
       if(!p.alive) continue;
 
-      setActivePiece(p);
-      await sleep(PREVIEW_MS);
+      // ★「今動く」ログ（見逃し対策）
+      logTag(`いま動く：${owner==="P"?"あなた":"相手"} ${PIECE[p.kind].label}`, "tagWarn");
 
+      // ★現在位置の強ハイライト
+      highlightCurrent(p);
+
+      // ★移動先を先に計算して点滅表示
       const move = chooseAutoMove(p);
       if(!move){
+        await sleep(PREVIEW_MS);
         logMsg(`${owner==="P"?"あなた":"相手"}：${PIECE[p.kind].label} は動けません。`);
-        await sleep(Math.max(200, AFTER_MOVE_MS * 0.7));
-        clearActive();
+        await sleep(AFTER_MOVE_MS);
+        clearHighlights();
         continue;
       }
+      highlightTarget(move.x, move.y);
+
+      // ★予告時間（点滅を見せる）
+      await sleep(PREVIEW_MS);
+
+      // ★実移動
       performMove(p, move.x, move.y);
       moved++;
       if(checkWin()) return;
 
+      // ★移動後の余韻
       await sleep(AFTER_MOVE_MS);
-      clearActive();
+      clearHighlights();
     }
+
     if(moved===0){
       logMsg(`${owner==="P"?"あなた":"相手"}：このターンは全駒が移動不能でした。`);
     }
@@ -661,7 +701,7 @@
 
   async function proceedTurn(){
     stopTimer();
-    clearActive();
+    clearHighlights();
 
     setPhase(PHASE.AUTO_P);
     await autoMoveSide("P");
@@ -683,7 +723,6 @@
     });
   }
 
-  // Buttons
   btnReset.addEventListener("click", () => init());
 
   btnStart.addEventListener("click", () => {
