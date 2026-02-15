@@ -3,1034 +3,1083 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Project AO 前庭仕様 v2.3.0（交互オート＋両者Q配置介入＋ループ対策）</title>
+  <title>Architect Ocean 7×7 Prototype (Auto Alternating)</title>
   <style>
     :root{
-      --bg:#0b1220; --panel:#101a2d; --text:#e7eefc; --muted:#a8b6d6;
-      --line:#253457; --accent:#6aa7ff; --good:#7dffb2; --bad:#ff7d7d; --warn:#ffd37d;
+      --cell: 56px;
+      --gap: 6px;
+      --panel: #f7f7f7;
+      --border: #ddd;
+      --text: #111;
     }
-    *{box-sizing:border-box}
     body{
-      margin:0; font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-      background: radial-gradient(1200px 700px at 20% 10%, #12234a 0%, var(--bg) 55%, #070b14 100%);
-      color:var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      background: #fff;
     }
-    .wrap{max-width:1120px; margin:0 auto; padding:16px;}
-    .top{display:flex; gap:12px; flex-wrap:wrap; align-items:stretch;}
+    h1{ font-size: 18px; margin: 0 0 8px; }
+    .wrap{
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 14px;
+      align-items: start;
+    }
     .card{
-      background: rgba(16,26,45,.92);
-      border:1px solid rgba(37,52,87,.85);
-      border-radius:14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
     }
-    .hud{flex:1 1 520px; padding:14px;}
-    .hud h1{margin:0 0 10px; font-size:16px; letter-spacing:.3px; color:#d9e6ff;}
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    .pill{
-      padding:8px 10px; border:1px solid rgba(37,52,87,.9);
-      border-radius:999px; background: rgba(15,23,48,.75);
-      color:var(--muted); font-size:12px;
-    }
-    .pill b{color:var(--text); font-weight:800}
-    .phase{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid rgba(37,52,87,.9);
-      background: rgba(8,12,24,.55);
-    }
-    .phaseTitle{display:flex; justify-content:space-between; align-items:center; gap:10px}
-    .phaseTitle .name{font-weight:900; letter-spacing:.4px}
-    .phaseTitle .timer{font-variant-numeric: tabular-nums; color:var(--warn); font-weight:900}
-    .sub{margin-top:6px; color:var(--muted); font-size:12px}
-
-    .main{display:grid; grid-template-columns: 1fr 390px; gap:12px; margin-top:12px;}
-    @media (max-width: 980px){ .main{grid-template-columns: 1fr;} }
-    .boardCard{padding:14px;}
-    .boardTop{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;}
-    .legend{color:var(--muted); font-size:12px; line-height:1.5}
-    .legend b{color:var(--text)}
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap:8px;
-      user-select:none;
+    .board{
+      display: grid;
+      grid-template-columns: repeat(7, var(--cell));
+      gap: var(--gap);
+      justify-content: start;
+      user-select: none;
     }
     .cell{
-      aspect-ratio: 1 / 1;
-      border-radius:12px;
-      border:1px solid rgba(37,52,87,.95);
-      background: linear-gradient(180deg, rgba(15,23,48,.85), rgba(9,14,29,.85));
-      display:flex; align-items:center; justify-content:center;
-      position:relative;
-      overflow:hidden;
-      cursor:pointer;
-    }
-
-    .cell.activeCell{
-      border:3px solid rgba(255, 211, 125, .95);
-      box-shadow: 0 0 0 7px rgba(255, 211, 125, .18), 0 0 35px rgba(255, 211, 125, .22);
-      transform: translateY(-1px);
-    }
-
-    @keyframes pulseTarget{
-      0%   { box-shadow: 0 0 0 0 rgba(106,167,255,.0); opacity: .95; }
-      50%  { box-shadow: 0 0 0 10px rgba(106,167,255,.22); opacity: 1; }
-      100% { box-shadow: 0 0 0 0 rgba(106,167,255,.0); opacity: .95; }
-    }
-    .cell.targetCell{
-      border:2px dashed rgba(106,167,255,.95);
-      animation: pulseTarget .8s ease-in-out infinite;
-    }
-
-    .cell.qLineP{
-      outline: 2px dashed rgba(125,255,178,.35);
-      outline-offset: -6px;
-    }
-    .cell.qLineE{
-      outline: 2px dashed rgba(255,125,125,.28);
-      outline-offset: -6px;
-    }
-
-    .marker{
-      position:absolute; left:8px; top:8px;
-      font-size:10px; color:rgba(231,238,252,.88);
-      padding:3px 7px; border-radius:999px;
-      border:1px solid rgba(231,238,252,.18);
-      background: rgba(0,0,0,.18);
-      opacity:.7;
-    }
-    .ship{
-      width:100%; height:100%;
-      display:flex; align-items:center; justify-content:center;
-      font-weight:1000; letter-spacing:.2px;
-      font-size:22px;
-      text-shadow: 0 2px 10px rgba(0,0,0,.35);
-      position:relative;
-    }
-    .ship .tag{
-      position:absolute; right:8px; bottom:8px;
-      font-size:10px; padding:2px 6px; border-radius:999px;
-      border:1px solid rgba(231,238,252,.18);
-      background: rgba(0,0,0,.18);
-      color:rgba(231,238,252,.9);
-      font-weight:800;
-    }
-    .pShip{color:#d8ebff;}
-    .eShip{color:#ffd9f2;}
-
-    .ship.active{
-      outline: 3px solid rgba(255, 211, 125, .95);
-      box-shadow: 0 0 0 6px rgba(255, 211, 125, .18), 0 0 30px rgba(255, 211, 125, .25);
+      width: var(--cell);
+      height: var(--cell);
+      border: 1px solid var(--border);
       border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      cursor: pointer;
+      position: relative;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .cell[data-zone="enemy"]{ background: #fff; }
+    .cell[data-zone="neutral"]{ background: #fff; }
+    .cell[data-zone="you"]{ background: #fff; }
+
+    .piece-you{ }
+    .piece-enemy{ }
+
+    /* highlight: current position */
+    .hi-from{
+      outline: 3px solid #000;
+      box-shadow: 0 0 12px rgba(255, 230, 0, 0.95);
+      z-index: 2;
+    }
+    /* highlight: destination */
+    .hi-to{
+      outline: 2px dashed #000;
+      z-index: 2;
+    }
+    .blink-to{
+      animation: blink 0.42s step-end infinite;
+    }
+    @keyframes blink{
+      50%{ opacity: 0.35; }
     }
 
-    .side{padding:14px;}
-    .side h2{margin:0 0 10px; font-size:14px; color:#d9e6ff;}
-    .btnRow{display:flex; gap:10px; flex-wrap:wrap;}
+    .row{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
     button{
-      border:1px solid rgba(37,52,87,.9);
-      background: rgba(15,23,48,.85);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius:12px;
-      font-weight:900;
-      cursor:pointer;
-      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 1px solid #bbb;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
     }
-    button:hover{border-color: rgba(106,167,255,.75); background: rgba(20,32,66,.92)}
-    button:active{transform: translateY(1px)}
-    button:disabled{opacity:.45; cursor:not-allowed;}
-    .btnPrimary{border-color: rgba(106,167,255,.85);}
-    .btnDanger{border-color: rgba(255,125,125,.85);}
-    .btnGood{border-color: rgba(125,255,178,.75);}
-
-    .panel{
-      margin-top:12px;
-      border:1px solid rgba(37,52,87,.9);
-      border-radius:14px;
-      background: rgba(8,12,24,.45);
-      padding:12px;
+    button:disabled{
+      opacity: 0.5;
+      cursor: not-allowed;
     }
-    .panelTitle{display:flex; justify-content:space-between; align-items:center; gap:10px;}
-    .panelTitle .t{font-weight:1000}
-    .small{font-size:12px; color:var(--muted); line-height:1.55}
-    .palette{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
-    .pieceBtn{
-      border:1px solid rgba(37,52,87,.9);
-      background: rgba(15,23,48,.85);
-      border-radius:12px;
-      padding:10px 12px;
-      min-width:90px;
-      cursor:pointer;
-      font-weight:1000;
+    .muted{ opacity: 0.75; font-size: 12px; line-height: 1.35; }
+    .status{
+      font-size: 14px;
+      margin: 6px 0 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px dashed #ccc;
+      min-height: 44px;
+      display:flex;
+      align-items:center;
+      gap:8px;
     }
-    .pieceBtn.sel{outline:2px solid rgba(106,167,255,.75); box-shadow: 0 0 0 4px rgba(106,167,255,.12);}
-    .pieceBtn b{font-size:18px}
+    .pill{
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #ccc;
+      background: #fff;
+      white-space: nowrap;
+    }
     .log{
-      max-height:260px; overflow:auto;
-      border:1px solid rgba(37,52,87,.85);
-      border-radius:12px;
-      background: rgba(0,0,0,.18);
-      padding:10px;
-      font-size:12px;
-      line-height:1.45;
-      color:rgba(231,238,252,.92);
+      height: 380px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: pre-wrap;
     }
-    .log p{margin:0 0 8px}
-    .log p:last-child{margin-bottom:0}
-    .tagGood{color: var(--good); font-weight:1000}
-    .tagBad{color: var(--bad); font-weight:1000}
-    .tagWarn{color: var(--warn); font-weight:1000}
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+    .hr{ height:1px;background:#e6e6e6;margin:10px 0; }
+    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .small{ font-size:12px; }
+    .danger{ font-weight:700; }
   </style>
 </head>
 
 <body>
-<div class="wrap">
-  <div class="top">
-    <div class="card hud">
-      <h1>Project AO：前庭仕様 v2.3.0（交互オート＋両者Q配置介入＋ループ対策）</h1>
+  <h1>Architect Ocean（試作・7×7）— オート交互 + 介入5秒（ターン1回）</h1>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="row small muted">
+        <span class="pill">あなた：下側（6行目）</span>
+        <span class="pill">相手：上側（0行目）</span>
+        <span class="pill">勝利：相手Kを制覇</span>
+        <span class="pill">Kは通常移動しない</span>
+      </div>
+
+      <div id="board" class="board" aria-label="board"></div>
+
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div class="small muted">
+          <div><span class="kbd">配置モード</span>：あなたの初期配置をクリックで設定できます（Kは下3行限定）</div>
+          <div>駒：<span class="kbd">□(S)</span> 前後1 / <span class="kbd">△(T)</span> 斜め4 / <span class="kbd">○(C)</span> 前+斜め前 / <span class="kbd">Q</span> 全方向1（介入で配置）</div>
+          <div>戦闘：将棋方式（上書き＝取る、取られた駒は消える）</div>
+        </div>
+        <div class="small muted">
+          <div><span class="kbd">ゲーム開始後</span>：ターン開始に介入5秒 → あなた1手 → 相手1手</div>
+          <div>見逃し対策：移動元（発光）、移動先（点滅）＋ログに毎回表示</div>
+          <div>無限ループ対策：往復検知＋停滞検知＋最大ターンで引き分け</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="row">
-        <div class="pill">状態：<b id="state">準備中</b></div>
-        <div class="pill">ターン：<b id="turn">1</b></div>
-        <div class="pill">介入：<b>5秒</b>（ターン1回/両者）</div>
-        <div class="pill">Q配置：あなた <b id="qCardRemainP">1</b>枚 / 相手 <b id="qCardRemainE">1</b>枚</div>
+        <button id="btnReset">リセット</button>
+        <button id="btnStart">開始</button>
+        <button id="btnAuto" disabled>オート進行（1ターン）</button>
+        <button id="btnPause" disabled>一時停止</button>
       </div>
 
-      <div class="phase">
-        <div class="phaseTitle">
-          <div class="name" id="phaseName">配置する</div>
-          <div class="timer" id="timer">—</div>
-        </div>
-        <div class="sub" id="phaseSub">自陣（最下段）に □×2 / △×1 / ○×1 を配置して、開始を押してください。Kは中央固定です。</div>
-      </div>
-    </div>
-
-    <div class="card hud" style="flex:1 1 320px;">
-      <h1>視認性</h1>
-      <div class="small">
-        ・いま動く駒：太枠＋発光（セル）<br/>
-        ・移動先：点線＋点滅（セル）<br/>
-        ・ログ：「いま動く：あなた □」を毎回出す
-      </div>
-      <div class="small" style="margin-top:10px;">
-        ※ v2.3.0：相手も状況に応じて <b>Q配置介入</b> をします。<br/>
-        ※ ループ対策：最大ターン／盤面反復で引き分け。
-      </div>
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="card boardCard">
-      <div class="boardTop">
-        <div class="legend">
-          盤面：5×5（上＝相手陣／下＝自陣）<br/>
-          駒：<b>□</b>（前後1） / <b>△</b>（斜め4） / <b>○</b>（前+斜め前2） / <b>K</b>（固定） / <b>Q</b>（王将：8方向1）<br/>
-          勝利：相手のKを取ったら勝ち（取った駒は今は再利用不可）
-        </div>
-        <div class="legend">
-          Q配置ライン：あなたは <b>y=3</b> / 相手は <b>y=1</b><br/>
-          介入順：<b>あなた → 相手（自動） → オート交互</b>
-        </div>
+      <div id="status" class="status">
+        <span class="pill">状態</span>
+        <span id="statusText">配置モード：あなたの駒を置いて「開始」</span>
       </div>
 
-      <div class="grid" id="grid"></div>
+      <div class="hr"></div>
 
-      <div style="margin-top:10px" class="small">ログ</div>
+      <div class="row">
+        <button id="btnCardQ" disabled>介入：Q配置</button>
+        <button id="btnSkip" disabled>スキップ</button>
+      </div>
+      <div class="muted small">
+        介入ルール：ターン開始に<strong>5秒</strong>だけ選べます（ターン1回）。  
+        Q配置は「自陣地から1マス上のライン（row=5）に配置」できます。
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row small muted">
+        <span class="pill">ターン</span><span id="turnNum">0</span>
+        <span class="pill">介入残り</span><span id="interveneLeft">-</span>
+        <span class="pill">進行</span><span id="phaseText">-</span>
+      </div>
+
+      <div class="hr"></div>
+
       <div class="log" id="log"></div>
     </div>
-
-    <div class="card side">
-      <h2>操作</h2>
-      <div class="btnRow">
-        <button id="btnStart" class="btnPrimary">開始</button>
-        <button id="btnSkip" class="btnPrimary" disabled>スキップ</button>
-        <button id="btnUseQ" class="btnGood" disabled>Q配置カードを使う</button>
-        <button id="btnReset" class="btnDanger">リセット</button>
-      </div>
-
-      <div class="panel" id="panelPlacement">
-        <div class="panelTitle">
-          <div class="t">配置：駒を選ぶ</div>
-          <div class="small">□×2 / △×1 / ○×1</div>
-        </div>
-        <div class="palette" id="palette"></div>
-        <div class="small" style="margin-top:10px">
-          ・Kは自陣中央に固定。<br/>
-          ・置いた駒は、同じマスをクリックで回収できます（配置中のみ）。<br/>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panelTitle"><div class="t">介入（ターン1回：あなた）</div></div>
-        <div class="small" style="margin-top:8px">
-          ・今は「スキップ」または「Q配置カード」。<br/>
-          ・Q配置を押したら、<b>自軍陣地の1マス上ライン</b>（点線）をクリックして配置。
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panelTitle"><div class="t">相手の介入（自動）</div></div>
-        <div class="small" style="margin-top:8px">
-          ・相手もQ配置カードを持ち、<b>危険/劣勢</b>のときに使用します。<br/>
-          ・相手のQ配置ラインは <b>相手陣地の1マス下（y=1）</b>。
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panelTitle"><div class="t">無限ループ対策</div></div>
-        <div class="small" style="margin-top:8px">
-          ・最大ターン：30で引き分け<br/>
-          ・同一盤面：3回で引き分け
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panelTitle"><div class="t">オートAI（簡易）</div></div>
-        <div class="small" style="margin-top:8px">
-          優先：①Kを取れる ②何か取れる ③相手Kに近づく<br/>
-          同点はランダム。
-        </div>
-      </div>
-    </div>
   </div>
-</div>
 
 <script>
-(() => {
-  const SIZE = 5;
-  const PLAYER_ROW = 4;
-  const ENEMY_ROW = 0;
-  const KING_COL = 2;
+/** ===============================
+ *  Architect Ocean 7x7 - Complete
+ * =============================== */
 
-  // 調整（視認性・テンポ）
-  const INTERVENE_SECONDS = 5;
-  const PREVIEW_MS = 450;
-  const AFTER_MOVE_MS = 750;
-  const ENEMY_INTERVENE_PAUSE_MS = 450;
+/** ===== Constants ===== */
+const BOARD_SIZE = 7;
 
-  // 無限ループ対策（試作向け）
-  const MAX_TURNS = 30;
-  const REPEAT_DRAW_THRESHOLD = 3;
+const SIDE = { YOU:"YOU", ENEMY:"ENEMY" };
 
-  const PHASE = { PLACE:"PLACE", INTERVENE:"INTERVENE", AUTO:"AUTO", END:"END" };
-  const PIECE = {
-    K:{label:"K"},
-    S:{label:"□"},
-    T:{label:"△"},
-    C:{label:"○"},
-    Q:{label:"Q"}  // 王将
-  };
-  const forwardDelta = (owner)=> owner==="P" ? -1 : 1;
-  const enemyOf = (owner)=> owner==="P" ? "E" : "P";
+const TYPE = {
+  KING: "K",
+  S: "S", // □
+  T: "T", // △
+  C: "C", // ○
+  Q: "Q", // Q (王将相当)
+};
 
-  let state;
+const TYPE_LABEL = {
+  K:"K",
+  S:"□",
+  T:"△",
+  C:"○",
+  Q:"Q",
+};
 
-  const el = id => document.getElementById(id);
-  const gridEl = el("grid");
-  const logEl = el("log");
-  const paletteEl = el("palette");
-  const btnStart = el("btnStart");
-  const btnSkip = el("btnSkip");
-  const btnUseQ = el("btnUseQ");
-  const btnReset = el("btnReset");
-  const stateEl = el("state");
-  const turnEl = el("turn");
-  const qCardRemainPEl = el("qCardRemainP");
-  const qCardRemainEEl = el("qCardRemainE");
-  const phaseNameEl = el("phaseName");
-  const phaseSubEl = el("phaseSub");
-  const timerEl = el("timer");
-  const panelPlacement = el("panelPlacement");
+const MAX_TURNS = 120;             // 安全停止（引き分け）
+const STAGNATION_LIMIT = 18;       // 停滞（大きな進展なし）が続いたら揺らぎ
+const MOVE_DELAY_MS = 560;         // 駒が動くスピード（遅め）
+const HIGHLIGHT_PRE_MS = 520;      // 移動前ハイライトの見せ時間
+const HIGHLIGHT_POST_MS = 220;     // 移動後の余韻
+const INTERVENTION_SECONDS = 5;
 
-  function init(){
-    state = {
-      phase: PHASE.PLACE,
-      turn: 1,
-      ended: false,
+/** ===== State ===== */
+let board = emptyBoard();
+let mode = "SETUP";                // SETUP / RUNNING / PAUSED / ENDED
+let autoRunning = false;
+let turn = 0;
 
-      pieces: [],
-      stock: { S:2, T:1, C:1 },
-      selectedStockKind: null,
+let hiFrom = null;
+let hiTo = null;
 
-      intervene: { left:0, tick:null, locked:false },
+const pieceHistory = new Map();    // pieceId -> last positions (for pingpong)
+let stagnationCounter = 0;         // 増え続けたら“揺らぎ”
+let lastMaterialScore = 0;         // 簡易評価（盤上駒数差など）
+let lastKingDistanceScore = 0;     // K距離など
 
-      auto: { index: 0, queue: [] },
+// Intervention control
+let interventionTimer = null;
+let interventionLeft = 0;
+let interventionOpen = false;
 
-      // 介入カード（両者）
-      cards: {
-        P: { placeQ: { remain: 1 } },
-        E: { placeQ: { remain: 1 } }
-      },
-      awaitingQPlacement: false, // あなたのQ配置待ち
+// pending action on intervention (Q placement)
+let pendingQPlacement = null; // {side, r, c}
 
-      repetition: { map: new Map() },
+/** ===== DOM ===== */
+const elBoard = document.getElementById("board");
+const elLog = document.getElementById("log");
+const elStatusText = document.getElementById("statusText");
+const elTurnNum = document.getElementById("turnNum");
+const elInterveneLeft = document.getElementById("interveneLeft");
+const elPhaseText = document.getElementById("phaseText");
 
-      log: [],
-      ui: { activePieceId: null, target: null },
-    };
+const btnReset = document.getElementById("btnReset");
+const btnStart = document.getElementById("btnStart");
+const btnAuto = document.getElementById("btnAuto");
+const btnPause = document.getElementById("btnPause");
+const btnCardQ = document.getElementById("btnCardQ");
+const btnSkip = document.getElementById("btnSkip");
 
-    addPiece("P","K", KING_COL, PLAYER_ROW);
-    addPiece("E","K", KING_COL, ENEMY_ROW);
+/** ===== Utilities ===== */
+function emptyBoard(){
+  return Array.from({length:BOARD_SIZE}, () => Array(BOARD_SIZE).fill(null));
+}
+function inBounds(r,c){ return r>=0 && r<BOARD_SIZE && c>=0 && c<BOARD_SIZE; }
+function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
+function nowStr(){
+  const d = new Date();
+  return d.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+}
+function logLine(msg){
+  elLog.textContent += `[${nowStr()}] ${msg}\n`;
+  elLog.scrollTop = elLog.scrollHeight;
+}
+function setStatus(msg){ elStatusText.textContent = msg; }
+function setPhase(msg){ elPhaseText.textContent = msg; }
+function setTurn(n){ elTurnNum.textContent = String(n); }
+function setInterveneLeft(n){ elInterveneLeft.textContent = (n>=0 ? String(n) : "-"); }
 
-    buildGrid();
-    renderAll();
-    setPhase(PHASE.PLACE);
-    logMsg("配置フェーズ：自陣（最下段）に駒を置いてください。");
+function cellKey(r,c){ return `${r},${c}`; }
+function samePos(a,b){ return a && b && a.r===b.r && a.c===b.c; }
+
+/** ===== Piece & Setup ===== */
+// 初期駒セット（あなた側）: K×1 + S×2 + T×2 + C×2（合計7）
+const DEFAULT_YOU_PIECES = [
+  { type: TYPE.KING, count: 1 },
+  { type: TYPE.S, count: 2 },
+  { type: TYPE.T, count: 2 },
+  { type: TYPE.C, count: 2 },
+];
+
+// 相手側は固定初期配置（とりあえず対称っぽく）
+function placeEnemyDefault(){
+  // 0行目にK、1行目に他駒を散らす
+  // ※ 後で「相手も配置」モードにしてもOK
+  const positions = [
+    {r:0,c:3,type:TYPE.KING},
+    {r:1,c:1,type:TYPE.S},
+    {r:1,c:5,type:TYPE.S},
+    {r:1,c:2,type:TYPE.T},
+    {r:1,c:4,type:TYPE.T},
+    {r:2,c:2,type:TYPE.C},
+    {r:2,c:4,type:TYPE.C},
+  ];
+  for (const p of positions){
+    board[p.r][p.c] = makePiece(SIDE.ENEMY, p.type);
   }
+}
 
-  function addPiece(owner, kind, x,y){
-    state.pieces.push({ id: owner+"_"+kind+"_"+Math.random().toString(36).slice(2,9), owner, kind, x,y, alive:true });
+let setupBag = []; // あなたの配置待ち駒のリスト
+function refillSetupBag(){
+  setupBag = [];
+  for (const x of DEFAULT_YOU_PIECES){
+    for (let i=0;i<x.count;i++){
+      setupBag.push(x.type);
+    }
   }
-  function pieceAt(x,y){ return state.pieces.find(p => p.alive && p.x===x && p.y===y) || null; }
-  function piecesOf(owner){ return state.pieces.filter(p => p.alive && p.owner===owner); }
-  function inBounds(x,y){ return x>=0 && x<SIZE && y>=0 && y<SIZE; }
-  function getPieceById(id){ return state.pieces.find(p => p.id===id && p.alive) || null; }
-  function hasAliveQ(owner){ return state.pieces.some(p => p.alive && p.owner===owner && p.kind==="Q"); }
+}
 
-  function buildGrid(){
-    gridEl.innerHTML = "";
-    for(let y=0;y<SIZE;y++){
-      for(let x=0;x<SIZE;x++){
-        const cell = document.createElement("div");
-        cell.className = "cell";
+function makePiece(side, type){
+  // id: side_type_serial
+  const serial = Math.random().toString(16).slice(2, 8);
+  return { id: `${side}_${type}_${serial}`, side, type };
+}
 
-        const m = document.createElement("div");
-        m.className = "marker";
-        m.textContent = (y===ENEMY_ROW ? "相手陣" : (y===PLAYER_ROW ? "自陣" : ""));
-        m.style.opacity = m.textContent ? "0.65" : "0";
-        cell.appendChild(m);
+function setupAllowedForYou(r,c,type){
+  // あなたの配置は下3行（row 4,5,6）
+  if (!(r>=4 && r<=6)) return false;
+  // Kは下3行限定はOK（同じ条件）＋1個だけ
+  if (type===TYPE.KING) return true;
+  return true;
+}
 
-        cell.addEventListener("click", () => onCellClick(x,y));
-        gridEl.appendChild(cell);
+/** ===== Rendering ===== */
+function zoneOfRow(r){
+  if (r<=1) return "enemy";
+  if (r>=5) return "you";
+  return "neutral";
+}
+
+function render(){
+  elBoard.innerHTML = "";
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.dataset.zone = zoneOfRow(r);
+
+      const p = board[r][c];
+      if (p){
+        cell.textContent = TYPE_LABEL[p.type] || p.type;
+        cell.classList.add(p.side === SIDE.YOU ? "piece-you" : "piece-enemy");
+      } else {
+        cell.textContent = "";
       }
+
+      // highlight
+      if (hiFrom && hiFrom.r===r && hiFrom.c===c) cell.classList.add("hi-from");
+      if (hiTo && hiTo.r===r && hiTo.c===c) cell.classList.add("hi-to","blink-to");
+
+      cell.addEventListener("click", onCellClick);
+      elBoard.appendChild(cell);
     }
   }
-  function cellEl(x,y){ return gridEl.children[y*SIZE + x] || null; }
+}
 
-  function renderGrid(){
-    [...gridEl.children].forEach(c => {
-      const old = c.querySelector(".ship");
-      if(old) old.remove();
-    });
-    [...gridEl.children].forEach(c => c.classList.remove("activeCell","targetCell","qLineP","qLineE"));
+function clearHighlights(){
+  hiFrom = null;
+  hiTo = null;
+  render();
+}
+function setHighlights(from, to){
+  hiFrom = from;
+  hiTo = to;
+  render();
+}
 
-    // あなたがQ配置待ちのとき：y=3 をガイド
-    if(state.phase === PHASE.INTERVENE && state.awaitingQPlacement){
-      const y = PLAYER_ROW - 1; // 3
-      for(let x=0;x<SIZE;x++){
-        const c = cellEl(x,y);
-        if(c) c.classList.add("qLineP");
-      }
-    }
+/** ===== Setup Interaction ===== */
+function onCellClick(e){
+  const r = Number(e.currentTarget.dataset.r);
+  const c = Number(e.currentTarget.dataset.c);
 
-    if(state.ui?.target){
-      const t = state.ui.target;
-      const tc = cellEl(t.x, t.y);
-      if(tc) tc.classList.add("targetCell");
-    }
+  if (mode === "SETUP"){
+    // 配置（あなたのみ）
+    if (setupBag.length === 0) return;
 
-    for(const p of state.pieces){
-      if(!p.alive) continue;
-      const cell = cellEl(p.x,p.y);
-      if(!cell) continue;
+    // 既に駒があるところには置けない
+    if (board[r][c]) return;
 
-      const ship = document.createElement("div");
-      ship.className = "ship " + (p.owner==="P" ? "pShip":"eShip");
-      ship.textContent = PIECE[p.kind].label;
+    const nextType = setupBag[0];
+    if (!setupAllowedForYou(r,c,nextType)) return;
 
-      const tag = document.createElement("div");
-      tag.className = "tag";
-      tag.textContent = (p.owner==="P" ? "あなた":"相手");
-      ship.appendChild(tag);
+    // 置く
+    board[r][c] = makePiece(SIDE.YOU, nextType);
+    setupBag.shift();
 
-      cell.appendChild(ship);
-
-      if(state.ui?.activePieceId && state.ui.activePieceId === p.id){
-        ship.classList.add("active");
-        cell.classList.add("activeCell");
-      }
-    }
+    logLine(`配置：あなた ${TYPE_LABEL[nextType]} を (${r},${c})`);
+    render();
+    updateSetupStatus();
+    return;
   }
 
-  function renderPalette(){
-    paletteEl.innerHTML = "";
-    const items = [
-      {kind:"S", label:"□", count: state.stock.S},
-      {kind:"T", label:"△", count: state.stock.T},
-      {kind:"C", label:"○", count: state.stock.C},
-    ];
-    for(const it of items){
-      const btn = document.createElement("div");
-      btn.className = "pieceBtn" + (state.selectedStockKind===it.kind ? " sel":"");
-      btn.innerHTML = `<b>${it.label}</b><div class="small" style="margin-top:4px">残り：${it.count}</div>`;
-      btn.addEventListener("click", () => {
-        if(state.phase !== PHASE.PLACE) return;
-        state.selectedStockKind = it.kind;
-        renderPalette();
-      });
-      paletteEl.appendChild(btn);
-    }
+  if (mode === "RUNNING" && interventionOpen){
+    // Q配置の置き場所選択（あなたのみ）
+    if (!pendingQPlacement || pendingQPlacement.side !== SIDE.YOU) return;
+    // Qは row=5（自陣地から1マス上）に限定
+    if (r !== 5) return;
+    if (board[r][c]) return;
+
+    pendingQPlacement.r = r;
+    pendingQPlacement.c = c;
+    logLine(`介入：Q配置の候補を選択 (${r},${c})`);
+    setStatus(`Q配置：(${r},${c}) を選択中 → もう一度「介入：Q配置」or タイムアウトで確定`);
+    // クリック選択だけでは確定しない（ボタン再押し or タイムアウトで確定）
+    // 視認性のためハイライト
+    setHighlights({r:6,c:3}, {r, c}); // fromはダミー。UI上はtoだけ見ればOKだが、簡易でOK
+    return;
+  }
+}
+
+/** ===== Controls ===== */
+btnReset.addEventListener("click", () => resetAll());
+btnStart.addEventListener("click", () => startGame());
+btnAuto.addEventListener("click", () => runOneTurn());
+btnPause.addEventListener("click", () => togglePause());
+
+btnCardQ.addEventListener("click", () => onInterventionQ());
+btnSkip.addEventListener("click", () => onInterventionSkip());
+
+function resetAll(){
+  stopIntervention();
+  autoRunning = false;
+  mode = "SETUP";
+  turn = 0;
+  stagnationCounter = 0;
+  pieceHistory.clear();
+
+  board = emptyBoard();
+  refillSetupBag();
+  placeEnemyDefault();
+
+  pendingQPlacement = null;
+  interventionOpen = false;
+
+  setTurn(turn);
+  setInterveneLeft(-1);
+  setPhase("配置");
+  setStatus("配置モード：あなたの駒を置いて「開始」");
+  btnStart.disabled = false;
+  btnAuto.disabled = true;
+  btnPause.disabled = true;
+  btnCardQ.disabled = true;
+  btnSkip.disabled = true;
+
+  elLog.textContent = "";
+  logLine("リセットしました。あなたの初期配置を行ってください。");
+  updateSetupStatus();
+  clearHighlights();
+  render();
+}
+
+function updateSetupStatus(){
+  if (mode !== "SETUP") return;
+  const left = setupBag.length;
+  if (left > 0){
+    const nextType = setupBag[0];
+    setStatus(`配置モード：残り ${left} 個（次：${TYPE_LABEL[nextType]}）※下3行に配置`);
+  } else {
+    setStatus("配置完了：準備OK → 「開始」を押してください");
+  }
+}
+
+function startGame(){
+  if (mode !== "SETUP") return;
+
+  // あなたのKが置かれているかチェック
+  const youKing = findKingPos(SIDE.YOU);
+  if (!youKing){
+    setStatus("開始できません：あなたのKが未配置です（下3行にKを配置してください）");
+    return;
   }
 
-  function renderHud(){
-    stateEl.textContent = state.ended ? "終了" : "進行中";
-    turnEl.textContent = String(state.turn);
-    qCardRemainPEl.textContent = String(state.cards.P.placeQ.remain);
-    qCardRemainEEl.textContent = String(state.cards.E.placeQ.remain);
+  // あなたの駒が全部置かれたか（簡易）
+  if (setupBag.length > 0){
+    setStatus(`開始できません：あなたの駒が未配置です（残り ${setupBag.length}）`);
+    return;
   }
 
-  function renderLog(){
-    logEl.innerHTML = "";
-    state.log.slice(-220).forEach(line => {
-      const p = document.createElement("p");
-      p.innerHTML = line;
-      logEl.appendChild(p);
-    });
-    logEl.scrollTop = logEl.scrollHeight;
-  }
+  mode = "RUNNING";
+  btnStart.disabled = true;
+  btnAuto.disabled = false;
+  btnPause.disabled = false;
 
-  function renderAll(){
-    renderHud();
-    renderPalette();
-    renderGrid();
-    renderLog();
-    updateButtons();
-  }
+  setPhase("待機");
+  setStatus("開始しました。『オート進行（1ターン）』で進められます。");
+  logLine("ゲーム開始。交互オートで進行します。");
+  render();
+}
 
-  function esc(s){ return String(s).replaceAll("<","&lt;").replaceAll(">","&gt;"); }
-  function logMsg(msg){ state.log.push(esc(msg)); renderLog(); }
-  function logTag(msg, cls){ state.log.push(`<span class="${cls}">${esc(msg)}</span>`); renderLog(); }
-
-  function clearHighlights(){
-    state.ui.activePieceId = null;
-    state.ui.target = null;
-    renderGrid();
-  }
-  function highlightCurrent(piece){
-    state.ui.activePieceId = piece.id;
-    renderGrid();
-  }
-  function highlightTarget(x,y){
-    state.ui.target = {x,y};
-    renderGrid();
-  }
-
-  function updateButtons(){
-    if(state.phase === PHASE.PLACE){
-      btnStart.disabled = !isPlacementReady();
-      btnSkip.disabled = true;
-      btnUseQ.disabled = true;
-      return;
-    }
-    if(state.phase === PHASE.INTERVENE){
-      btnStart.disabled = true;
-      btnSkip.disabled = false;
-      btnUseQ.disabled = !(state.cards.P.placeQ.remain > 0) || state.awaitingQPlacement;
-      return;
-    }
-    btnStart.disabled = true;
+/** ===== Pause ===== */
+function togglePause(){
+  if (mode === "RUNNING"){
+    mode = "PAUSED";
+    setStatus("一時停止中。『一時停止』を押すと再開します。");
+    setPhase("停止");
+    btnAuto.disabled = true;
+    btnCardQ.disabled = true;
     btnSkip.disabled = true;
-    btnUseQ.disabled = true;
+    logLine("一時停止");
+  } else if (mode === "PAUSED"){
+    mode = "RUNNING";
+    setStatus("再開しました。");
+    setPhase("待機");
+    btnAuto.disabled = false;
+    logLine("再開");
   }
+}
 
-  function setPhase(phase){
-    state.phase = phase;
-    stopTimer();
-    clearHighlights();
-    state.awaitingQPlacement = false;
-
-    if(phase===PHASE.PLACE){
-      phaseNameEl.textContent = "配置する";
-      timerEl.textContent = "—";
-      phaseSubEl.textContent = "自陣（最下段）に □×2 / △×1 / ○×1 を配置して、開始を押してください。Kは中央固定です。";
-      panelPlacement.style.display = "block";
-    } else if(phase===PHASE.INTERVENE){
-      phaseNameEl.textContent = "介入する？（ターン1回：あなた）";
-      timerEl.textContent = String(INTERVENE_SECONDS);
-      phaseSubEl.textContent = "5秒で判断。スキップ または Q配置カード。介入後、相手も状況に応じて介入します。";
-      panelPlacement.style.display = "none";
-      startTimer();
-    } else if(phase===PHASE.AUTO){
-      phaseNameEl.textContent = "オート進行（交互：あなた→相手）";
-      timerEl.textContent = "—";
-      phaseSubEl.textContent = "1手ずつ交互に動きます。";
-      panelPlacement.style.display = "none";
-    } else if(phase===PHASE.END){
-      phaseNameEl.textContent = "結果";
-      timerEl.textContent = "—";
-      phaseSubEl.textContent = "";
-      panelPlacement.style.display = "none";
-    }
-    renderAll();
-  }
-
-  function isPlacementReady(){ return state.stock.S===0 && state.stock.T===0 && state.stock.C===0; }
-
-  function onCellClick(x,y){
-    if(state.ended) return;
-
-    // あなたの介入：Q配置待ち
-    if(state.phase === PHASE.INTERVENE && state.awaitingQPlacement){
-      const qY = PLAYER_ROW - 1; // 3
-      if(y !== qY){
-        logMsg("Q配置：自軍陣地の1マス上のライン（点線）をクリックしてください。");
-        return;
-      }
-      if(pieceAt(x,y)){
-        logMsg("Q配置：そのマスは使用中です。別の空きマスを選んでください。");
-        return;
-      }
-      placeQAt("P", x,y);
-      stopTimer();
-      logTag("介入：あなたがQを配置しました。", "tagGood");
-      renderAll();
-      proceedTurnSafe();
-      return;
-    }
-
-    // 配置フェーズ
-    if(state.phase !== PHASE.PLACE) return;
-
-    if(y !== PLAYER_ROW){
-      logMsg("配置：自陣（最下段）のみ配置できます。");
-      return;
-    }
-    const here = pieceAt(x,y);
-    if(here && here.kind==="K"){
-      logMsg("配置：Kは固定です。");
-      return;
-    }
-    if(here && here.owner==="P" && here.kind!=="K"){
-      here.alive = false;
-      state.stock[here.kind] += 1;
-      logMsg(`配置：${PIECE[here.kind].label} を回収しました。`);
-      renderAll();
-      return;
-    }
-    if(pieceAt(x,y)){
-      logMsg("配置：そのマスは使用中です。");
-      return;
-    }
-    if(!state.selectedStockKind){
-      logMsg("配置：右のパレットから駒を選んでください。");
-      return;
-    }
-    if(state.stock[state.selectedStockKind] <= 0){
-      logMsg("配置：その駒はもう置けません。");
-      return;
-    }
-    addPiece("P", state.selectedStockKind, x,y);
-    state.stock[state.selectedStockKind] -= 1;
-    logMsg(`配置：${PIECE[state.selectedStockKind].label} を配置しました。`);
-    renderAll();
-  }
-
-  function placeEnemyPiecesRandom(){
-    const slots = [];
-    for(let x=0;x<SIZE;x++){
-      if(x===KING_COL) continue;
-      slots.push({x, y:ENEMY_ROW});
-    }
-    const bag = ["S","S","T","C"];
-    shuffle(bag); shuffle(slots);
-    for(let i=0;i<bag.length;i++){
-      addPiece("E", bag[i], slots[i].x, slots[i].y);
+/** ===== Game Logic ===== */
+function findKingPos(side){
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      const p = board[r][c];
+      if (p && p.side===side && p.type===TYPE.KING) return {r,c};
     }
   }
+  return null;
+}
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [a[i],a[j]] = [a[j],a[i]];
+function allPieces(side){
+  const out = [];
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      const p = board[r][c];
+      if (p && p.side===side) out.push({r,c,p});
     }
   }
+  return out;
+}
 
-  function getLegalMoves(piece){
-    const dy = forwardDelta(piece.owner);
-    const moves = [];
-    const add = (nx,ny) => {
-      if(!inBounds(nx,ny)) return;
-      const occ = pieceAt(nx,ny);
-      if(occ && occ.owner===piece.owner) return;
-      moves.push({x:nx,y:ny});
-    };
-
-    if(piece.kind==="S"){
-      add(piece.x, piece.y + dy);
-      add(piece.x, piece.y - dy);
-    } else if(piece.kind==="T"){
-      add(piece.x-1, piece.y + dy);
-      add(piece.x+1, piece.y + dy);
-      add(piece.x-1, piece.y - dy);
-      add(piece.x+1, piece.y - dy);
-    } else if(piece.kind==="C"){
-      add(piece.x, piece.y + dy);
-      add(piece.x-1, piece.y + dy);
-      add(piece.x+1, piece.y + dy);
-    } else if(piece.kind==="Q"){
-      for(let dx=-1; dx<=1; dx++){
-        for(let ddy=-1; ddy<=1; ddy++){
-          if(dx===0 && ddy===0) continue;
-          add(piece.x + dx, piece.y + ddy);
-        }
-      }
-    }
-    return moves;
+function moveDeltas(piece){
+  // forward depends on side
+  const f = (piece.side===SIDE.YOU) ? -1 : +1;
+  switch(piece.type){
+    case TYPE.KING:
+      // Kは通常動かない（カードで将来対応）
+      return [];
+    case TYPE.Q:
+      return [
+        {dr:-1,dc:-1},{dr:-1,dc:0},{dr:-1,dc:+1},
+        {dr:0,dc:-1},           {dr:0,dc:+1},
+        {dr:+1,dc:-1},{dr:+1,dc:0},{dr:+1,dc:+1},
+      ];
+    case TYPE.S: // □: 前後
+      return [{dr:f,dc:0},{dr:-f,dc:0}];
+    case TYPE.T: // △: 斜め4
+      return [{dr:-1,dc:-1},{dr:-1,dc:+1},{dr:+1,dc:-1},{dr:+1,dc:+1}];
+    case TYPE.C: // ○: 前＋斜め前
+      return [{dr:f,dc:0},{dr:f,dc:-1},{dr:f,dc:+1}];
+    default:
+      return [];
   }
+}
 
-  function performMove(piece, toX, toY){
-    const target = pieceAt(toX,toY);
-    if(target && target.owner!==piece.owner){
-      target.alive = false;
-      logTag(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が ${PIECE[target.kind].label} を制覇`, "tagWarn");
-    } else {
-      logMsg(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} が移動`);
-    }
-    piece.x = toX; piece.y = toY;
-    renderAll();
-  }
-
-  function checkWin(){
-    const eK = state.pieces.find(p => p.alive && p.owner==="E" && p.kind==="K");
-    const pK = state.pieces.find(p => p.alive && p.owner==="P" && p.kind==="K");
-    if(!eK){ endGame("P", "勝利。相手のKを取った。"); return true; }
-    if(!pK){ endGame("E", "敗北。あなたのKが取られた。"); return true; }
-    return false;
-  }
-
-  function endGame(winner, msg){
-    state.ended = true;
-    setPhase(PHASE.END);
-    logTag(msg, winner==="P" ? "tagGood" : "tagBad");
-  }
-  function endDraw(msg){
-    state.ended = true;
-    setPhase(PHASE.END);
-    logTag(msg, "tagWarn");
-  }
-
-  function chooseAutoMove(piece){
-    const legal = getLegalMoves(piece);
-    if(!legal.length) return null;
-
-    const enemyK = state.pieces.find(p => p.alive && p.owner===enemyOf(piece.owner) && p.kind==="K");
-    if(!enemyK) return null;
-
-    let bestScore = -Infinity;
-    let best = [];
-    for(const m of legal){
-      const t = pieceAt(m.x,m.y);
-      let score = 0;
-      if(t && t.owner!==piece.owner){
-        score += (t.kind==="K") ? 10000 : 1000;
-      }
-      const d = Math.abs(m.x - enemyK.x) + Math.abs(m.y - enemyK.y);
-      score += (100 - d);
-      if(score > bestScore){
-        bestScore = score;
-        best = [m];
-      } else if(score === bestScore){
-        best.push(m);
-      }
-    }
-    return best[Math.floor(Math.random()*best.length)];
-  }
-
-  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
-
-  function buildInterleavedQueue(){
-    const pList = piecesOf("P").filter(p => p.kind!=="K").sort((a,b)=> (a.y-b.y)||(a.x-b.x));
-    const eList = piecesOf("E").filter(p => p.kind!=="K").sort((a,b)=> (a.y-b.y)||(a.x-b.x));
-
-    const q = [];
-    const n = Math.max(pList.length, eList.length);
-    for(let i=0;i<n;i++){
-      if(pList[i]) q.push(pList[i].id);
-      if(eList[i]) q.push(eList[i].id);
-    }
-    return q;
-  }
-
-  function guessNextOwnerForKey(){
-    if(state.phase === PHASE.AUTO && state.auto?.queue && state.auto.index < state.auto.queue.length){
-      const id = state.auto.queue[state.auto.index];
-      const p = getPieceById(id);
-      return p ? p.owner : "X";
-    }
-    return "P";
-  }
-  function boardKey(){
-    const nextOwner = guessNextOwnerForKey();
-    const alive = state.pieces
-      .filter(p => p.alive)
-      .map(p => `${p.owner}${p.kind}${p.x}${p.y}`)
-      .sort()
-      .join("|");
-    return `T${state.turn}|N${nextOwner}|${alive}`;
-  }
-  function recordAndCheckRepetition(){
-    const key = boardKey();
-    const m = state.repetition.map;
-    const c = (m.get(key) || 0) + 1;
-    m.set(key, c);
-    if(c >= REPEAT_DRAW_THRESHOLD){
-      endDraw(`同一盤面が ${REPEAT_DRAW_THRESHOLD} 回繰り返されたため引き分け。`);
-      return true;
-    }
-    return false;
-  }
-
-  async function doOneAutoMoveById(pieceId){
-    const piece = getPieceById(pieceId);
-    if(!piece) return;
-
-    logTag(`いま動く：${piece.owner==="P"?"あなた":"相手"} ${PIECE[piece.kind].label}`, "tagWarn");
-    highlightCurrent(piece);
-
-    const move = chooseAutoMove(piece);
-    if(!move){
-      await sleep(PREVIEW_MS);
-      logMsg(`${piece.owner==="P"?"あなた":"相手"}：${PIECE[piece.kind].label} は動けません。`);
-      await sleep(AFTER_MOVE_MS);
-      clearHighlights();
-      return;
-    }
-
-    highlightTarget(move.x, move.y);
-    await sleep(PREVIEW_MS);
-
-    performMove(piece, move.x, move.y);
-    if(checkWin()) return;
-
-    await sleep(AFTER_MOVE_MS);
-    clearHighlights();
-  }
-
-  async function runAutoTurnInterleaved(){
-    setPhase(PHASE.AUTO);
-
-    state.auto.queue = buildInterleavedQueue();
-    state.auto.index = 0;
-
-    if(state.auto.queue.length === 0){
-      logMsg("動かせる駒（K以外）がありません。");
-      return;
-    }
-
-    while(state.auto.index < state.auto.queue.length){
-      if(state.ended) return;
-      const id = state.auto.queue[state.auto.index];
-      state.auto.index += 1;
-      await doOneAutoMoveById(id);
-    }
-  }
-
-  // ====== Q配置（共通） ======
-  function qLineY(owner){
-    return owner==="P" ? (PLAYER_ROW - 1) : (ENEMY_ROW + 1); // P:3 / E:1
-  }
-
-  function placeQAt(owner, x, y){
-    addPiece(owner, "Q", x, y);
-    state.cards[owner].placeQ.remain -= 1;
-    renderAll();
-  }
-
-  function chooseQPlacementForEnemy(){
-    const y = qLineY("E"); // 1
-    const candidates = [];
-    for(let x=0;x<SIZE;x++){
-      if(!pieceAt(x,y)) candidates.push({x,y});
-    }
-    if(!candidates.length) return null;
-
-    // あなたの駒（K以外）に近い位置を優先（壁/迎撃）
-    const pPieces = piecesOf("P").filter(p => p.kind!=="K");
-    const distToNearestP = (pos) => {
-      if(!pPieces.length) return 999;
-      let best = 999;
-      for(const p of pPieces){
-        const d = Math.abs(pos.x - p.x) + Math.abs(pos.y - p.y);
-        if(d < best) best = d;
-      }
-      return best;
-    };
-
-    let bestScore = -Infinity;
-    let best = [];
-    for(const c of candidates){
-      const nearest = distToNearestP(c);
-      // 近いほど高得点（=前に出て壁になる）
-      const score = 100 - nearest + (Math.random()*0.01);
-      if(score > bestScore){
-        bestScore = score;
-        best = [c];
-      }else if(score === bestScore){
-        best.push(c);
-      }
-    }
-    return best[Math.floor(Math.random()*best.length)];
-  }
-
-  function shouldEnemyIntervene(){
-    if(state.cards.E.placeQ.remain <= 0) return false;
-    if(hasAliveQ("E")) return false; // 既にQがいるなら温存
-
-    const eK = state.pieces.find(p => p.alive && p.owner==="E" && p.kind==="K");
-    if(!eK) return false;
-
-    const pAttackers = piecesOf("P").filter(p => p.kind!=="K");
-    let minDist = 999;
-    for(const p of pAttackers){
-      const d = Math.abs(p.x - eK.x) + Math.abs(p.y - eK.y);
-      if(d < minDist) minDist = d;
-    }
-
-    const pCount = piecesOf("P").filter(p => p.kind!=="K").length;
-    const eCount = piecesOf("E").filter(p => p.kind!=="K").length;
-
-    // 条件：危険（Kに近い） or 劣勢
-    const danger = (minDist <= 2);
-    const behind = (eCount < pCount);
-
-    return danger || behind;
-  }
-
-  async function enemyInterveneIfNeeded(){
-    if(state.ended) return;
-
-    if(!shouldEnemyIntervene()){
-      logMsg("相手：介入なし。");
-      await sleep(ENEMY_INTERVENE_PAUSE_MS);
-      return;
-    }
-
-    const pos = chooseQPlacementForEnemy();
-    if(!pos){
-      logMsg("相手：Q配置したいが空きがない。");
-      await sleep(ENEMY_INTERVENE_PAUSE_MS);
-      return;
-    }
-
-    logTag("相手：介入（Q配置）", "tagBad");
-    // 相手のQラインを一瞬だけガイド表示（見せる用）
-    for(let x=0;x<SIZE;x++){
-      const c = cellEl(x, qLineY("E"));
-      if(c) c.classList.add("qLineE");
-    }
-    await sleep(220);
-
-    placeQAt("E", pos.x, pos.y);
-    logMsg(`相手：Qを配置（x=${pos.x+1}, y=${pos.y+1}）`);
-    await sleep(ENEMY_INTERVENE_PAUSE_MS);
-
-    // ガイド解除
-    for(let x=0;x<SIZE;x++){
-      const c = cellEl(x, qLineY("E"));
-      if(c) c.classList.remove("qLineE");
-    }
-    renderAll();
-  }
-
-  // ====== ターン進行 ======
-  async function proceedTurn(){
-    stopTimer();
-    clearHighlights();
-
-    // ここで「相手の介入（自動）」を挟む
-    await enemyInterveneIfNeeded();
-    if(state.ended) return;
-
-    await runAutoTurnInterleaved();
-    if(state.ended) return;
-
-    state.turn += 1;
-
-    if(state.turn > MAX_TURNS){
-      endDraw(`最大ターン（${MAX_TURNS}）に到達したため引き分け。`);
-      return;
-    }
-    if(recordAndCheckRepetition()){
-      return;
-    }
-    setPhase(PHASE.INTERVENE);
-  }
-
-  function proceedTurnSafe(){
-    proceedTurn().catch(err => {
-      console.error(err);
-      logTag("JSエラーで停止しました：コンソールも確認してください", "tagBad");
-      logTag(String(err?.message || err), "tagBad");
+function legalMoves(fromR, fromC){
+  const piece = board[fromR][fromC];
+  if (!piece) return [];
+  const deltas = moveDeltas(piece);
+  const moves = [];
+  for (const d of deltas){
+    const nr = fromR + d.dr;
+    const nc = fromC + d.dc;
+    if (!inBounds(nr,nc)) continue;
+    const target = board[nr][nc];
+    if (target && target.side === piece.side) continue; // 自駒は踏めない
+    moves.push({
+      from:{r:fromR,c:fromC},
+      to:{r:nr,c:nc},
+      capture: !!target,
+      captured: target || null,
     });
   }
+  return moves;
+}
 
-  function startTimer(){
-    stopTimer();
-    state.intervene.left = INTERVENE_SECONDS;
-    state.intervene.locked = false;
-    timerEl.textContent = String(state.intervene.left);
+/** ===== Loop Prevention (ping-pong) ===== */
+function pushHistory(pieceId, pos){
+  if (!pieceHistory.has(pieceId)) pieceHistory.set(pieceId, []);
+  const arr = pieceHistory.get(pieceId);
+  arr.push({r:pos.r,c:pos.c});
+  while(arr.length>6) arr.shift();
+}
+function detectPingPong(pieceId){
+  const arr = pieceHistory.get(pieceId) || [];
+  if (arr.length < 5) return { looped:false, avoid:null };
+  const p0 = arr[arr.length-5];
+  const p1 = arr[arr.length-4];
+  const p2 = arr[arr.length-3];
+  const p3 = arr[arr.length-2];
+  const p4 = arr[arr.length-1];
+  const eq = (a,b)=>a.r===b.r && a.c===b.c;
+  if (eq(p0,p2) && eq(p2,p4) && eq(p1,p3) && !eq(p0,p1)){
+    return { looped:true, avoid:{r:p3.r,c:p3.c} };
+  }
+  return { looped:false, avoid:null };
+}
 
-    state.intervene.tick = setInterval(() => {
-      if(state.ended) return;
-      if(state.phase !== PHASE.INTERVENE) return;
-      if(state.intervene.locked) return;
+function manhattan(a,b){
+  return Math.abs(a.r-b.r)+Math.abs(a.c-b.c);
+}
 
-      state.intervene.left -= 1;
-      timerEl.textContent = String(Math.max(0, state.intervene.left));
-      if(state.intervene.left <= 0){
-        state.intervene.locked = true;
-        logMsg("スキップ（自動）。");
-        proceedTurnSafe();
+/** ===== AI: choose one move among all pieces ===== */
+function chooseBestMove(side){
+  const enemySide = (side===SIDE.YOU) ? SIDE.ENEMY : SIDE.YOU;
+  const enemyK = findKingPos(enemySide);
+  if (!enemyK) return null;
+
+  const pieces = allPieces(side);
+  const candidates = [];
+
+  for (const it of pieces){
+    const {r,c,p} = it;
+    // Kは動かない
+    if (p.type === TYPE.KING) continue;
+
+    let moves = legalMoves(r,c);
+    if (moves.length===0) continue;
+
+    // ping-pong avoid
+    const {looped, avoid} = detectPingPong(p.id);
+    if (looped && avoid){
+      const filtered = moves.filter(m => !(m.to.r===avoid.r && m.to.c===avoid.c));
+      if (filtered.length>0) moves = filtered;
+    }
+
+    for (const m of moves){
+      const capturesK = m.capture && m.captured && m.captured.type===TYPE.KING;
+      const capturesAny = m.capture;
+      const dist = manhattan(m.to, enemyK);
+      candidates.push({ move:m, piece:p, capturesK, capturesAny, dist });
+    }
+  }
+
+  if (candidates.length===0) return null;
+
+  // sort by: capturesK desc, capturesAny desc, dist asc
+  candidates.sort((a,b)=>{
+    if (a.capturesK !== b.capturesK) return (b.capturesK?1:0) - (a.capturesK?1:0);
+    if (a.capturesAny !== b.capturesAny) return (b.capturesAny?1:0) - (a.capturesAny?1:0);
+    return a.dist - b.dist;
+  });
+
+  // randomize among top equals to reduce determinism
+  const top = candidates[0];
+  const topSet = candidates.filter(x =>
+    x.capturesK===top.capturesK && x.capturesAny===top.capturesAny && x.dist===top.dist
+  );
+  return topSet[Math.floor(Math.random()*topSet.length)];
+}
+
+/** ===== Apply move ===== */
+function applyMove(m){
+  const piece = board[m.from.r][m.from.c];
+  if (!piece) return {ok:false, captured:null};
+  const captured = board[m.to.r][m.to.c] || null;
+
+  board[m.from.r][m.from.c] = null;
+  board[m.to.r][m.to.c] = piece;
+
+  return {ok:true, captured};
+}
+
+/** ===== Simple evaluation for stagnation detection ===== */
+function materialScore(){
+  // 自駒数 - 敵駒数
+  const you = allPieces(SIDE.YOU).length;
+  const en = allPieces(SIDE.ENEMY).length;
+  return you - en;
+}
+function kingDistanceScore(){
+  // 全自駒（動く駒のみ）→敵K の距離の合計（小さいほど攻めが進む）
+  const enemyK = findKingPos(SIDE.ENEMY);
+  const youK = findKingPos(SIDE.YOU);
+  if (!enemyK || !youK) return 0;
+
+  const youMovers = allPieces(SIDE.YOU).filter(x => x.p.type !== TYPE.KING);
+  const enMovers = allPieces(SIDE.ENEMY).filter(x => x.p.type !== TYPE.KING);
+
+  const sumYou = youMovers.reduce((s,x)=>s+manhattan({r:x.r,c:x.c}, enemyK), 0);
+  const sumEn  = enMovers.reduce((s,x)=>s+manhattan({r:x.r,c:x.c}, youK), 0);
+
+  // 進展判定に使うため、差を返す（小さいほどあなたが攻めている）
+  return (sumEn - sumYou);
+}
+
+/** ===== Stagnation shake (anti-infinite) ===== */
+function applyStagnationShake(side){
+  // 停滞したら、最短距離優先ではなく「ランダム候補」へ寄せる
+  // → chooseBestMove の同率候補があるときにランダム性が既にあるが、それでも詰む場合があるため、
+  // ここでは「距離が同率でなくても上位数候補からランダム」で揺らす
+  const enemySide = (side===SIDE.YOU) ? SIDE.ENEMY : SIDE.YOU;
+  const enemyK = findKingPos(enemySide);
+  if (!enemyK) return null;
+
+  const pieces = allPieces(side).filter(x => x.p.type !== TYPE.KING);
+  const candidates = [];
+
+  for (const it of pieces){
+    let moves = legalMoves(it.r,it.c);
+    if (moves.length===0) continue;
+
+    const {looped, avoid} = detectPingPong(it.p.id);
+    if (looped && avoid){
+      const filtered = moves.filter(m => !(m.to.r===avoid.r && m.to.c===avoid.c));
+      if (filtered.length>0) moves = filtered;
+    }
+
+    for (const m of moves){
+      const capturesK = m.capture && m.captured && m.captured.type===TYPE.KING;
+      const capturesAny = m.capture;
+      const dist = manhattan(m.to, enemyK);
+      candidates.push({ move:m, piece:it.p, capturesK, capturesAny, dist });
+    }
+  }
+  if (candidates.length===0) return null;
+
+  // capturesK 最優先は維持
+  const kingCaps = candidates.filter(x=>x.capturesK);
+  if (kingCaps.length>0){
+    return kingCaps[Math.floor(Math.random()*kingCaps.length)];
+  }
+
+  // 次に capture を優先しつつ、上位5候補からランダム
+  const caps = candidates.filter(x=>x.capturesAny);
+  const pool = (caps.length>0) ? caps : candidates;
+
+  pool.sort((a,b)=>{
+    if (a.capturesAny !== b.capturesAny) return (b.capturesAny?1:0)-(a.capturesAny?1:0);
+    return a.dist - b.dist;
+  });
+
+  const topN = pool.slice(0, Math.min(5, pool.length));
+  return topN[Math.floor(Math.random()*topN.length)];
+}
+
+/** ===== Intervention: Q placement ===== */
+function canPlaceQ(side){
+  // side の Q を置けるライン
+  // YOU: row=5, ENEMY: row=1（相手視点の「自陣から1マス上」）
+  const rLine = (side===SIDE.YOU) ? 5 : 1;
+  for (let c=0;c<BOARD_SIZE;c++){
+    if (!board[rLine][c]) return true;
+  }
+  return false;
+}
+
+function placeQ(side, c){
+  const rLine = (side===SIDE.YOU) ? 5 : 1;
+  if (!inBounds(rLine,c)) return false;
+  if (board[rLine][c]) return false;
+  board[rLine][c] = makePiece(side, TYPE.Q);
+  return true;
+}
+
+function enemyShouldPlaceQ(){
+  // ざっくりAI：
+  // 1) 自分Kが脅威（あなたの駒がK近距離）→置く
+  // 2) あなたがQで攻めている / 駒差不利 → 置く
+  // 3) 置くマスは「自Kに近い列」優先、空いてなければ近い列へ
+  if (!canPlaceQ(SIDE.ENEMY)) return false;
+
+  const enemyK = findKingPos(SIDE.ENEMY);
+  const youPieces = allPieces(SIDE.YOU).filter(x=>x.p.type!==TYPE.KING);
+
+  // threat: あなたの駒が敵Kに近い（距離<=3）
+  const near = youPieces.some(x => manhattan({r:x.r,c:x.c}, enemyK) <= 3);
+
+  const mat = materialScore(); // you - enemy
+  // enemy is losing if mat > 1 (you have more pieces)
+  const enemyLosing = mat > 1;
+
+  // you has Q already?
+  const youHasQ = youPieces.some(x=>x.p.type===TYPE.Q);
+
+  // probability-like decision
+  if (near) return true;
+  if (enemyLosing) return true;
+  if (youHasQ && Math.random() < 0.65) return true;
+  if (Math.random() < 0.22) return true;
+  return false;
+}
+
+function pickEnemyQColumn(){
+  // enemy row=1 のどこに置くか：自K列を中心に
+  const enemyK = findKingPos(SIDE.ENEMY);
+  const targetCol = enemyK ? enemyK.c : 3;
+  const cols = [];
+  for (let d=0; d<BOARD_SIZE; d++){
+    const left = targetCol - d;
+    const right = targetCol + d;
+    if (left>=0) cols.push(left);
+    if (right<BOARD_SIZE && right!==left) cols.push(right);
+  }
+  for (const c of cols){
+    if (!board[1][c]) return c;
+  }
+  // fallback
+  for (let c=0;c<BOARD_SIZE;c++){
+    if (!board[1][c]) return c;
+  }
+  return null;
+}
+
+/** ===== Turn Flow ===== */
+async function runOneTurn(){
+  if (mode !== "RUNNING") return;
+  if (autoRunning) return;
+
+  autoRunning = true;
+  btnAuto.disabled = true;
+
+  try{
+    if (turn >= MAX_TURNS){
+      endGame("引き分け（最大ターン）");
+      return;
+    }
+
+    turn += 1;
+    setTurn(turn);
+
+    // Turn start: intervention phase
+    await interventionPhase();
+
+    // After intervention: auto moves alternating
+    setPhase("オート：あなた1手");
+    const r1 = await autoStepWithUI(SIDE.YOU);
+    if (r1.kingCaptured){ endGame("あなたの勝ち"); return; }
+
+    setPhase("オート：相手1手");
+    const r2 = await autoStepWithUI(SIDE.ENEMY);
+    if (r2.kingCaptured){ endGame("相手の勝ち"); return; }
+
+    // Stagnation check
+    const mScore = materialScore();
+    const kScore = kingDistanceScore();
+    const progressed = (mScore !== lastMaterialScore) || (kScore !== lastKingDistanceScore);
+
+    if (!progressed) stagnationCounter += 1;
+    else stagnationCounter = 0;
+
+    lastMaterialScore = mScore;
+    lastKingDistanceScore = kScore;
+
+    if (stagnationCounter >= STAGNATION_LIMIT){
+      logLine(`停滞検知：揺らぎを適用（stagnation=${stagnationCounter}）`);
+      // 次のターンから揺らぎが入る（内部的にはautoStepWithUIで判定）
+      // ここでは即時解除しておく
+      stagnationCounter = Math.floor(STAGNATION_LIMIT/2);
+    }
+
+    setPhase("待機");
+    setStatus("ターン完了。『オート進行（1ターン）』で次へ。");
+  } finally{
+    autoRunning = false;
+    if (mode === "RUNNING") btnAuto.disabled = false;
+  }
+}
+
+/** ===== Intervention Phase (5 seconds, once per turn) ===== */
+async function interventionPhase(){
+  if (mode !== "RUNNING") return;
+
+  setPhase("介入（5秒）");
+  interventionOpen = true;
+  pendingQPlacement = null;
+
+  // UI enable
+  btnCardQ.disabled = false;
+  btnSkip.disabled = false;
+
+  // enemy decide too (but apply after your window ends for simplicity)
+  // ※仕様として「同じ介入窓」で双方が介入可能という前提にしておく
+  const enemyWillPlaceQ = enemyShouldPlaceQ();
+
+  // open timer
+  interventionLeft = INTERVENTION_SECONDS;
+  setInterveneLeft(interventionLeft);
+  setStatus("介入フェーズ：5秒で選択（Q配置 or スキップ）");
+
+  await new Promise((resolve) => {
+    interventionTimer = setInterval(() => {
+      if (mode !== "RUNNING"){
+        stopIntervention();
+        resolve();
+        return;
+      }
+
+      interventionLeft -= 1;
+      setInterveneLeft(interventionLeft);
+
+      if (interventionLeft <= 0){
+        stopIntervention();
+        resolve();
       }
     }, 1000);
+  });
+
+  // timer ended -> auto apply if you selected Q placement and chose cell
+  if (pendingQPlacement && pendingQPlacement.side === SIDE.YOU){
+    // if player picked a cell, place there; else do nothing
+    if (pendingQPlacement.r === 5 && pendingQPlacement.c != null){
+      const ok = placeQ(SIDE.YOU, pendingQPlacement.c);
+      if (ok){
+        logLine(`介入確定：あなた Q を (5,${pendingQPlacement.c}) に配置`);
+      } else {
+        logLine("介入失敗：あなた Q配置（マスが埋まっている等）");
+      }
+    } else {
+      logLine("介入：あなた Q配置（場所未選択のため不発）");
+    }
   }
 
-  function stopTimer(){
-    if(state?.intervene?.tick){
-      clearInterval(state.intervene.tick);
-      state.intervene.tick = null;
+  // enemy intervention apply
+  if (enemyWillPlaceQ){
+    const col = pickEnemyQColumn();
+    if (col != null){
+      const ok = placeQ(SIDE.ENEMY, col);
+      if (ok) logLine(`介入：相手 Q を (1,${col}) に配置`);
     }
   }
 
-  // Buttons
-  btnReset.addEventListener("click", () => init());
+  interventionOpen = false;
+  btnCardQ.disabled = true;
+  btnSkip.disabled = true;
+  setInterveneLeft(-1);
 
-  btnStart.addEventListener("click", () => {
-    if(state.phase !== PHASE.PLACE) return;
-    if(!isPlacementReady()){
-      logMsg("開始：まだ配置が終わっていません。");
+  clearHighlights();
+  render();
+}
+
+function stopIntervention(){
+  if (interventionTimer){
+    clearInterval(interventionTimer);
+    interventionTimer = null;
+  }
+  interventionLeft = 0;
+  setInterveneLeft(0);
+
+  // close UI
+  btnCardQ.disabled = true;
+  btnSkip.disabled = true;
+  interventionOpen = false;
+
+  // if Q placement pending but not selected, keep as-is (will fail)
+}
+
+/** ===== Intervention Buttons ===== */
+function onInterventionQ(){
+  if (mode !== "RUNNING" || !interventionOpen) return;
+
+  // 2段階：1回目押し→配置準備、セルクリックで場所選択、再度押す→確定予約
+  if (!pendingQPlacement){
+    if (!canPlaceQ(SIDE.YOU)){
+      setStatus("Q配置できません（row=5が埋まっています）");
       return;
     }
-    placeEnemyPiecesRandom();
-    logMsg("開始：相手が配置を完了しました。");
+    pendingQPlacement = { side: SIDE.YOU, r: null, c: null };
+    setStatus("Q配置：row=5（自陣から1マス上）の空マスをクリックで選択 → もう一度「介入：Q配置」で確定予約");
+    logLine("介入：あなた Q配置モード（row=5 をクリック）");
+    return;
+  }
 
-    recordAndCheckRepetition();
-    setPhase(PHASE.INTERVENE);
-  });
-
-  btnSkip.addEventListener("click", () => {
-    if(state.phase !== PHASE.INTERVENE) return;
-    if(state.awaitingQPlacement){
-      logMsg("Q配置：配置先を選ぶか、もう一度「Q配置カードを使う」をキャンセルしてください。");
-      return;
+  if (pendingQPlacement.side === SIDE.YOU){
+    if (pendingQPlacement.r === 5 && pendingQPlacement.c != null){
+      setStatus(`Q配置：(${pendingQPlacement.r},${pendingQPlacement.c}) を予約しました（残り時間で変更可能）`);
+      logLine(`介入：あなた Q配置 予約（5,${pendingQPlacement.c}）`);
+    } else {
+      setStatus("Q配置：場所が未選択です（row=5の空マスをクリック）");
     }
-    logMsg("スキップ。");
-    proceedTurnSafe();
-  });
+  }
+}
 
-  btnUseQ.addEventListener("click", () => {
-    if(state.phase !== PHASE.INTERVENE) return;
-    if(state.cards.P.placeQ.remain <= 0){
-      logMsg("Q配置：カードがありません。");
-      return;
-    }
-    state.awaitingQPlacement = true;
-    logTag("Q配置：自軍陣地の1マス上ライン（点線）をクリックして配置してください。", "tagGood");
-    renderAll();
-  });
+function onInterventionSkip(){
+  if (mode !== "RUNNING" || !interventionOpen) return;
+  pendingQPlacement = null;
+  setStatus("スキップを選択しました（時間終了まで待つか、別の操作も可能）");
+  logLine("介入：あなた スキップ");
+}
 
-  init();
+/** ===== Auto step with UI ===== */
+async function autoStepWithUI(side){
+  // choose normal or shake move if stagnating
+  let pick = null;
+
+  if (stagnationCounter >= Math.floor(STAGNATION_LIMIT/2)){
+    pick = applyStagnationShake(side);
+  } else {
+    pick = chooseBestMove(side);
+  }
+
+  if (!pick){
+    logLine(`${side===SIDE.YOU ? "あなた" : "相手"}：動ける駒がありません（スキップ）`);
+    clearHighlights();
+    await sleep(MOVE_DELAY_MS);
+    return { moved:false, kingCaptured:false };
+  }
+
+  const move = pick.move;
+  const piece = pick.piece;
+  const who = (side===SIDE.YOU) ? "あなた" : "相手";
+
+  logLine(`いま動く：${who} ${TYPE_LABEL[piece.type]}`);
+
+  // highlight
+  setHighlights(move.from, move.to);
+  await sleep(HIGHLIGHT_PRE_MS);
+
+  const result = applyMove(move);
+
+  // update history at new position
+  pushHistory(piece.id, move.to);
+
+  render();
+  await sleep(HIGHLIGHT_POST_MS);
+  clearHighlights();
+
+  // logs
+  const kingCaptured = !!(result.captured && result.captured.type === TYPE.KING);
+  if (kingCaptured){
+    logLine(`決着：${who} が相手Kを制覇`);
+    return { moved:true, kingCaptured:true };
+  }
+  if (result.captured){
+    const capWho = (result.captured.side===SIDE.YOU) ? "あなた" : "相手";
+    logLine(`捕獲：${who} ${TYPE_LABEL[piece.type]} が ${capWho} ${TYPE_LABEL[result.captured.type]} を取った`);
+  }
+  return { moved:true, kingCaptured:false };
+}
+
+/** ===== End Game ===== */
+function endGame(resultText){
+  mode = "ENDED";
+  autoRunning = false;
+  stopIntervention();
+
+  btnAuto.disabled = true;
+  btnPause.disabled = true;
+  btnCardQ.disabled = true;
+  btnSkip.disabled = true;
+
+  setPhase("終了");
+  setStatus(`ゲーム終了：${resultText}`);
+  logLine(`ゲーム終了：${resultText}`);
+}
+
+/** ===== Init ===== */
+(function init(){
+  resetAll();
 })();
 </script>
 </body>
