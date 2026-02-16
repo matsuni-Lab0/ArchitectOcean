@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Architect Ocean 7×7 Prototype (Auto Mode / Interleaved Turn)</title>
+  <title>Architect Ocean 7×7 - Auto Mode (Setup Steps + Hidden Enemy/Initiative)</title>
   <style>
     :root{
       --cell: 56px;
@@ -22,7 +22,7 @@
     h1{ font-size: 18px; margin: 0 0 8px; }
     .wrap{
       display: grid;
-      grid-template-columns: 1fr 420px;
+      grid-template-columns: 1fr 440px;
       gap: 14px;
       align-items: start;
     }
@@ -49,20 +49,23 @@
       background: #fff;
       cursor: pointer;
       position: relative;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 18px;
     }
     .cell[data-zone="enemy"]{ background: #fff; }
     .cell[data-zone="neutral"]{ background: #fff; }
     .cell[data-zone="you"]{ background: #fff; }
 
-    /* highlight: current position */
+    /* subtle side tint */
+    .p-you{ color:#111; }
+    .p-enemy{ color:#7a1212; }
+
+    /* highlight */
     .hi-from{
       outline: 3px solid #000;
       box-shadow: 0 0 12px rgba(255, 230, 0, 0.95);
       z-index: 2;
     }
-    /* highlight: destination */
     .hi-to{
       outline: 2px dashed #000;
       z-index: 2;
@@ -70,15 +73,14 @@
     .blink-to{
       animation: blink 0.42s step-end infinite;
     }
-    @keyframes blink{
-      50%{ opacity: 0.35; }
-    }
+    @keyframes blink{ 50%{ opacity: 0.35; } }
 
     .row{
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
       margin: 8px 0;
+      align-items: center;
     }
     button{
       padding: 10px 10px;
@@ -86,13 +88,13 @@
       border: 1px solid #bbb;
       background: #fff;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
     }
     button:disabled{
-      opacity: 0.5;
+      opacity: 0.45;
       cursor: not-allowed;
     }
-    .muted{ opacity: 0.75; font-size: 12px; line-height: 1.35; }
+    .muted{ opacity: 0.78; font-size: 12px; line-height: 1.35; }
     .status{
       font-size: 14px;
       margin: 6px 0 0;
@@ -112,6 +114,14 @@
       border: 1px solid #ccc;
       background: #fff;
       white-space: nowrap;
+    }
+    .bigNow{
+      font-size: 18px;
+      font-weight: 900;
+      padding: 6px 10px;
+      border-radius: 12px;
+      border: 1px solid #bbb;
+      background: #fff;
     }
     .log{
       height: 380px;
@@ -135,19 +145,28 @@
     .hr{ height:1px;background:#e6e6e6;margin:10px 0; }
     .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     .small{ font-size:12px; }
+
+    .hintBox{
+      background:#fff;
+      border:1px solid #ddd;
+      border-radius:10px;
+      padding:10px;
+      font-size:12px;
+      line-height:1.35;
+    }
   </style>
 </head>
 
 <body>
-  <h1>Architect Ocean（試作・7×7）— オートモード（介入なし・初期配置のみ）</h1>
+  <h1>アーキテクト・オーシャン（試作・7×7）— オートモード（介入なし）＋配置UI段階化</h1>
 
   <div class="wrap">
     <div class="card">
       <div class="row small muted">
-        <span class="pill">あなた：下側（6行目）</span>
-        <span class="pill">相手：上側（0行目）</span>
-        <span class="pill">勝利：相手Kを制覇</span>
-        <span class="pill">Kは通常移動しない</span>
+        <span class="pill">あなた：下側（下3行）</span>
+        <span class="pill">相手：上側（上3行）※開始まで秘匿</span>
+        <span class="pill">勝利：相手「司令」を制覇</span>
+        <span class="pill">「司令」は通常移動しない</span>
       </div>
 
       <div id="board" class="board" aria-label="board"></div>
@@ -155,15 +174,15 @@
       <div class="hr"></div>
 
       <div class="grid2">
-        <div class="small muted">
-          <div><span class="kbd">配置モード</span>：あなたの初期配置をクリックで設定（Kは下3行限定）</div>
-          <div>駒：<span class="kbd">□(S)</span> 前後1 / <span class="kbd">△(T)</span> 斜め4 / <span class="kbd">○(C)</span> 前+斜め前</div>
-          <div>戦闘：将棋方式（上書き＝取る、取られた駒は消える）</div>
+        <div class="hintBox">
+          <div><span class="kbd">駒の表示（盤面）</span>：司 / 秘 / 駆 / 巡 / 偵</div>
+          <div><span class="kbd">駒の名称（ログ）</span>：司令 / 秘密兵器 / 駆逐艦 / 巡洋艦 / 偵察艦</div>
+          <div class="muted">※内部キー（K/Q/S/C/T）はそのまま</div>
         </div>
-        <div class="small muted">
-          <div><span class="kbd">ゲーム開始後</span>：オート進行のみ（介入UIなし）</div>
-          <div>ターン定義：<span class="kbd">1ターン＝両者の“動ける駒”が最大1回ずつ行動</span>（交互固定キューを全消化）</div>
-          <div>無限ループ対策：往復回避＋停滞揺らぎ＋最大ターンで引き分け</div>
+        <div class="hintBox">
+          <div><span class="kbd">ターン定義</span>：交互固定キューを全消化した単位</div>
+          <div><span class="kbd">手番</span>：1駒ぶんの行動</div>
+          <div><span class="kbd">行動キュー</span>：ターン開始時に作成（動ける駒のみ）</div>
         </div>
       </div>
     </div>
@@ -171,22 +190,32 @@
     <div class="card">
       <div class="row">
         <button id="btnReset">リセット</button>
-        <button id="btnStart">開始</button>
-        <button id="btnAuto" disabled>オート進行（1ターン）</button>
-        <button id="btnPause" disabled>一時停止</button>
+        <button id="btnConfirm" disabled>決定</button>
+        <button id="btnUndo" disabled>1つ戻る</button>
+        <button id="btnStart" disabled>開始</button>
+      </div>
+
+      <div class="row">
+        <span class="pill">配置</span><span id="setupStepText">STEP1</span>
+        <span class="pill">今置く駒</span><span id="currentPieceText" class="bigNow">司（司令）</span>
       </div>
 
       <div id="status" class="status">
         <span class="pill">状態</span>
-        <span id="statusText">配置モード：あなたの駒を置いて「開始」</span>
+        <span id="statusText">配置：STEP1 司令位置（3択）を選び、決定してください</span>
       </div>
 
       <div class="hr"></div>
 
       <div class="row small muted">
-        <span class="pill">先攻</span><span id="initiativeText">-</span>
+        <span class="pill">先攻</span><span id="initiativeText">？</span>
         <span class="pill">ターン</span><span id="turnNum">0</span>
-        <span class="pill">進行</span><span id="phaseText">-</span>
+        <span class="pill">進行</span><span id="phaseText">配置</span>
+      </div>
+
+      <div class="row">
+        <button id="btnAuto" disabled>オート進行（1ターン）</button>
+        <button id="btnPause" disabled>一時停止</button>
       </div>
 
       <div class="hr"></div>
@@ -196,65 +225,101 @@
   </div>
 
 <script>
-/** ===============================
- *  Architect Ocean 7x7 - Auto Mode (No Intervention)
- *  改修ポイント（重要）：
- *   - 介入UI/処理を完全無効化（オートモード専用）
- *   - 先攻後攻は「開始」押下時にランダム決定しHUD/ログに保持
- *   - ターン（=ラウンド）：
- *       「両者の“動ける駒”(※K除外)」が最大1回ずつ行動するキューを全消化した単位
- *     手番（=アクション）：
- *       1駒ぶんの行動
- *   - 行動キュー：
- *       各陣営の駒リストは毎ターン安定（y昇順→x昇順→id）で作成し、
- *       先攻側→後攻側→先攻側→後攻側…の交互固定（インターリーブ）で結合
- * =============================== */
+/** =========================================================
+ *  Architect Ocean 7×7 - Auto Mode
+ *  追加要件（今回の必須）
+ *   - 駒名の漢字化：盤面/ログ/UIで「司/秘/駆/巡/偵」を使用（ログは役割名）
+ *   - 配置UI段階化：STEP1（司令3択）→ 決定 → STEP2（残りを固定順で配置）
+ *   - 秘匿：
+ *       ・先攻後攻は開始押下で初めて決定し、開始前は「先攻：？」表示
+ *       ・相手の配置は開始押下で初めて確定し、開始前は盤面に表示しない
+ *
+ *  オートモード（介入なし）
+ *   - ターン（=ラウンド）：交互固定（インターリーブ）キュー全消化
+ *   - 手番（=アクション）：1駒ぶんの行動
+ *   - 行動キュー：ターン開始時に、動ける駒のみから作成
+ *   - ソート安定：y昇順→x昇順→id（毎ターン同じ）
+ * ========================================================= */
 
 /** ===== Constants ===== */
 const BOARD_SIZE = 7;
 
 const SIDE = { YOU:"YOU", ENEMY:"ENEMY" };
 
+// 内部キーは維持（K/Q/S/C/T）
 const TYPE = {
-  KING: "K",
-  S: "S", // □
-  T: "T", // △
-  C: "C", // ○
+  KING: "K",   // 司令
+  SECRET: "Q", // 秘密兵器（今回は使わないが名称は準備）
+  S: "S",      // 駆逐艦
+  C: "C",      // 巡洋艦
+  T: "T",      // 偵察艦
 };
 
-const TYPE_LABEL = {
-  K:"K",
-  S:"□",
-  T:"△",
-  C:"○",
+// 盤面表示（漢字1文字）
+const DISP_CHAR = {
+  K: "司",
+  Q: "秘",
+  S: "駆",
+  C: "巡",
+  T: "偵",
 };
 
-const MAX_TURNS = 120;             // 安全停止（引き分け）
-const STAGNATION_LIMIT = 18;       // 停滞が続いたら揺らぎ
+// ログ/説明の役割名
+const ROLE_NAME = {
+  K: "司令",
+  Q: "秘密兵器",
+  S: "駆逐艦",
+  C: "巡洋艦",
+  T: "偵察艦",
+};
 
-// ★テンポ一括調整（仕様要望：一括調整可能に）
+const MAX_TURNS = 120;
+const STAGNATION_LIMIT = 18;
+
+// テンポ一括調整
 const SPEED = {
-  previewMs: 320,      // 移動前ハイライト
-  afterMs: 140,        // 移動後の余韻
-  betweenActionMs: 120 // 手番間の間
+  previewMs: 320,
+  afterMs: 140,
+  betweenActionMs: 120
 };
 
 /** ===== State ===== */
 let board = emptyBoard();
-let mode = "SETUP";                // SETUP / RUNNING / PAUSED / ENDED
+let mode = "SETUP";           // SETUP / RUNNING / PAUSED / ENDED
 let autoRunning = false;
 let turn = 0;
 
-// 先攻（開始時にランダム決定して固定）
-let firstSide = null;              // SIDE.YOU or SIDE.ENEMY
+// 先攻（開始時に決定。開始前は秘匿）
+let firstSide = null;         // SIDE.YOU or SIDE.ENEMY or null
 
+// 相手配置（開始で確定。開始前は空に見せる）
+let enemyPlaced = false;
+
+// setup step
+let setupStep = 1;            // 1 or 2
+let selectedCell = null;      // {r,c} for pending selection
+
+// STEP1: 司令3択（下端中心/左/右）
+const YOU_K_CHOICES = [
+  {r:6, c:3},
+  {r:6, c:2},
+  {r:6, c:4},
+];
+
+// STEP2: 残り駒の固定順（例）
+const STEP2_ORDER = [TYPE.S, TYPE.S, TYPE.C, TYPE.C, TYPE.T, TYPE.T];
+let step2Index = 0;
+let placedStack = [];         // {r,c,type,side} の履歴（Undo用）
+
+// ループ対策
+const pieceHistory = new Map(); // pieceId -> last positions
+let stagnationCounter = 0;
+let lastMaterialScore = 0;
+let lastKingDistanceScore = 0;
+
+// highlight
 let hiFrom = null;
 let hiTo = null;
-
-const pieceHistory = new Map();    // pieceId -> last positions (for pingpong)
-let stagnationCounter = 0;         // 増え続けたら“揺らぎ”
-let lastMaterialScore = 0;         // 簡易評価（盤上駒数差など）
-let lastKingDistanceScore = 0;     // K距離など
 
 /** ===== DOM ===== */
 const elBoard = document.getElementById("board");
@@ -263,8 +328,12 @@ const elStatusText = document.getElementById("statusText");
 const elTurnNum = document.getElementById("turnNum");
 const elPhaseText = document.getElementById("phaseText");
 const elInitiativeText = document.getElementById("initiativeText");
+const elSetupStepText = document.getElementById("setupStepText");
+const elCurrentPieceText = document.getElementById("currentPieceText");
 
 const btnReset = document.getElementById("btnReset");
+const btnConfirm = document.getElementById("btnConfirm");
+const btnUndo = document.getElementById("btnUndo");
 const btnStart = document.getElementById("btnStart");
 const btnAuto = document.getElementById("btnAuto");
 const btnPause = document.getElementById("btnPause");
@@ -275,28 +344,20 @@ function emptyBoard(){
 }
 function inBounds(r,c){ return r>=0 && r<BOARD_SIZE && c>=0 && c<BOARD_SIZE; }
 function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
-
-// 一時停止対応sleep（停止中は時間が進まない）
 async function sleepWithPause(ms){
   let remain = ms;
   const step = 50;
   while(remain > 0){
-    if (mode === "PAUSED"){
-      await waitWhilePaused();
-      continue;
-    }
-    if (mode !== "RUNNING") return; // reset/end等
+    if (mode === "PAUSED"){ await waitWhilePaused(); continue; }
+    if (mode !== "RUNNING") return;
     const chunk = Math.min(step, remain);
     await sleep(chunk);
     remain -= chunk;
   }
 }
 async function waitWhilePaused(){
-  while(mode === "PAUSED"){
-    await sleep(120);
-  }
+  while(mode === "PAUSED"){ await sleep(120); }
 }
-
 function nowStr(){
   const d = new Date();
   return d.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
@@ -308,68 +369,31 @@ function logLine(msg){
 function setStatus(msg){ elStatusText.textContent = msg; }
 function setPhase(msg){ elPhaseText.textContent = msg; }
 function setTurn(n){ elTurnNum.textContent = String(n); }
-function setInitiative(){
-  if (!firstSide) elInitiativeText.textContent = "-";
-  else elInitiativeText.textContent = (firstSide === SIDE.YOU) ? "あなた" : "相手";
-}
 
-function samePos(a,b){ return a && b && a.r===b.r && a.c===b.c; }
-
-/** ===== Piece & Setup ===== */
-// 初期駒セット（あなた側）: K×1 + S×2 + T×2 + C×2（合計7）
-const DEFAULT_YOU_PIECES = [
-  { type: TYPE.KING, count: 1 },
-  { type: TYPE.S, count: 2 },
-  { type: TYPE.T, count: 2 },
-  { type: TYPE.C, count: 2 },
-];
-
-// 相手側は固定初期配置（対称っぽく）
-function placeEnemyDefault(){
-  const positions = [
-    {r:0,c:3,type:TYPE.KING},
-    {r:1,c:1,type:TYPE.S},
-    {r:1,c:5,type:TYPE.S},
-    {r:1,c:2,type:TYPE.T},
-    {r:1,c:4,type:TYPE.T},
-    {r:2,c:2,type:TYPE.C},
-    {r:2,c:4,type:TYPE.C},
-  ];
-  for (const p of positions){
-    board[p.r][p.c] = makePiece(SIDE.ENEMY, p.type);
-  }
-}
-
-let setupBag = []; // あなたの配置待ち駒のリスト
-function refillSetupBag(){
-  setupBag = [];
-  for (const x of DEFAULT_YOU_PIECES){
-    for (let i=0;i<x.count;i++){
-      setupBag.push(x.type);
-    }
-  }
-}
-
-function makePiece(side, type){
-  const serial = Math.random().toString(16).slice(2, 8);
-  return { id: `${side}_${type}_${serial}`, side, type };
-}
-
-function setupAllowedForYou(r,c,type){
-  // あなたの配置は下3行（row 4,5,6）
-  if (!(r>=4 && r<=6)) return false;
-  // Kは下3行限定（同じ条件）
-  if (type===TYPE.KING) return true;
-  return true;
-}
-
-/** ===== Rendering ===== */
+/** ===== Board zoning ===== */
 function zoneOfRow(r){
   if (r<=1) return "enemy";
   if (r>=5) return "you";
   return "neutral";
 }
+function isYouArea(r,c){
+  // 自軍配置範囲：下3行（4,5,6）
+  return (r>=4 && r<=6);
+}
+function isEnemyArea(r,c){
+  // 相手配置範囲：上3行（0,1,2）
+  return (r>=0 && r<=2);
+}
 
+/** ===== Piece creation ===== */
+function makePiece(side, type){
+  const serial = Math.random().toString(16).slice(2, 8);
+  return { id: `${side}_${type}_${serial}`, side, type };
+}
+function dispChar(type){ return DISP_CHAR[type] || type; }
+function roleName(type){ return ROLE_NAME[type] || type; }
+
+/** ===== Rendering ===== */
 function render(){
   elBoard.innerHTML = "";
   for (let r=0;r<BOARD_SIZE;r++){
@@ -381,8 +405,13 @@ function render(){
       cell.dataset.zone = zoneOfRow(r);
 
       const p = board[r][c];
-      if (p){
-        cell.textContent = TYPE_LABEL[p.type] || p.type;
+
+      // 相手配置秘匿：開始前（enemyPlaced=false）は相手駒を表示しない
+      if (p && p.side===SIDE.ENEMY && !enemyPlaced){
+        cell.textContent = "";
+      } else if (p){
+        cell.textContent = dispChar(p.type);
+        cell.classList.add(p.side===SIDE.YOU ? "p-you" : "p-enemy");
       } else {
         cell.textContent = "";
       }
@@ -390,46 +419,89 @@ function render(){
       if (hiFrom && hiFrom.r===r && hiFrom.c===c) cell.classList.add("hi-from");
       if (hiTo && hiTo.r===r && hiTo.c===c) cell.classList.add("hi-to","blink-to");
 
+      // setup pending selection highlight（hiToを流用してもよいが、分離して扱う）
+      if (mode==="SETUP" && selectedCell && selectedCell.r===r && selectedCell.c===c){
+        cell.classList.add("hi-to","blink-to");
+      }
+
       cell.addEventListener("click", onCellClick);
       elBoard.appendChild(cell);
     }
   }
 }
-
 function clearHighlights(){
   hiFrom = null;
   hiTo = null;
   render();
 }
-function setHighlights(from, to){
+function setHighlights(from,to){
   hiFrom = from;
   hiTo = to;
   render();
 }
 
-/** ===== Setup Interaction ===== */
+/** ===== Setup UI updates ===== */
+function updateHUDForSetup(){
+  setPhase("配置");
+  if (setupStep === 1){
+    elSetupStepText.textContent = "STEP1（司令位置）";
+    elCurrentPieceText.textContent = `司（${roleName(TYPE.KING)}）`;
+    setStatus("配置：STEP1 司令位置（中心/左/右の3択）をクリックで選び、決定してください");
+    btnUndo.disabled = true;
+    btnStart.disabled = true;
+  } else {
+    const t = STEP2_ORDER[step2Index] || null;
+    elSetupStepText.textContent = `STEP2（残り配置 ${step2Index+1}/${STEP2_ORDER.length}）`;
+    elCurrentPieceText.textContent = t ? `${dispChar(t)}（${roleName(t)}）` : "完了";
+    setStatus(t
+      ? `配置：STEP2 「${dispChar(t)}（${roleName(t)}）」を自軍エリアに置き、決定してください`
+      : "配置完了：『開始』が押せます（先攻/相手配置は開始まで秘匿）"
+    );
+    btnUndo.disabled = (placedStack.length===0);
+    btnStart.disabled = (step2Index < STEP2_ORDER.length);
+  }
+
+  // 決定ボタンは「選択済み」のときだけ押せる
+  btnConfirm.disabled = (selectedCell === null);
+
+  // 先攻は開始前は必ず？
+  elInitiativeText.textContent = (firstSide ? (firstSide===SIDE.YOU ? "あなた" : "相手") : "？");
+}
+
+/** ===== Click handling ===== */
 function onCellClick(e){
+  if (mode !== "SETUP") return;
+
   const r = Number(e.currentTarget.dataset.r);
   const c = Number(e.currentTarget.dataset.c);
 
-  if (mode === "SETUP"){
-    if (setupBag.length === 0) return;
-    if (board[r][c]) return;
-
-    const nextType = setupBag[0];
-    if (!setupAllowedForYou(r,c,nextType)) return;
-
-    board[r][c] = makePiece(SIDE.YOU, nextType);
-    setupBag.shift();
-
-    logLine(`配置：あなた ${TYPE_LABEL[nextType]} を (${r},${c})`);
+  // クリックで選択だけ（確定は「決定」）
+  if (setupStep === 1){
+    // 司令3択のみ
+    if (!YOU_K_CHOICES.some(p => p.r===r && p.c===c)) return;
+    selectedCell = {r,c};
+    btnConfirm.disabled = false;
     render();
-    updateSetupStatus();
+    return;
+  }
+
+  if (setupStep === 2){
+    // 自軍エリアのみ＆空マスのみ
+    if (!isYouArea(r,c)) return;
+    if (board[r][c]) return;
+    if (step2Index >= STEP2_ORDER.length) return;
+
+    selectedCell = {r,c};
+    btnConfirm.disabled = false;
+    render();
+    return;
   }
 }
 
-/** ===== Controls ===== */
+/** ===== Buttons ===== */
 btnReset.addEventListener("click", () => resetAll());
+btnConfirm.addEventListener("click", () => confirmSelection());
+btnUndo.addEventListener("click", () => undoOne());
 btnStart.addEventListener("click", () => startGame());
 btnAuto.addEventListener("click", () => runOneTurn());
 btnPause.addEventListener("click", () => togglePause());
@@ -438,85 +510,193 @@ function resetAll(){
   autoRunning = false;
   mode = "SETUP";
   turn = 0;
-  firstSide = null;
 
+  // 秘匿を初期化
+  firstSide = null;
+  enemyPlaced = false;
+
+  // setup state
+  setupStep = 1;
+  selectedCell = null;
+  step2Index = 0;
+  placedStack = [];
+
+  // loop/score state
   stagnationCounter = 0;
   pieceHistory.clear();
+  lastMaterialScore = 0;
+  lastKingDistanceScore = 0;
 
   board = emptyBoard();
-  refillSetupBag();
-  placeEnemyDefault();
 
   setTurn(turn);
-  setInitiative();
   setPhase("配置");
-  setStatus("配置モード：あなたの駒を置いて「開始」");
+  elLog.textContent = "";
+  logLine("リセットしました。配置を開始してください。");
+  logLine("※開始前は『先攻：？』、相手配置も秘匿（盤面に表示されません）");
 
-  btnStart.disabled = false;
+  // UI
   btnAuto.disabled = true;
   btnPause.disabled = true;
+  btnStart.disabled = true;
+  btnConfirm.disabled = true;
+  btnUndo.disabled = true;
 
-  elLog.textContent = "";
-  logLine("リセットしました。あなたの初期配置を行ってください。");
-  updateSetupStatus();
-  clearHighlights();
+  updateHUDForSetup();
   render();
 }
 
-function updateSetupStatus(){
+function confirmSelection(){
   if (mode !== "SETUP") return;
-  const left = setupBag.length;
-  if (left > 0){
-    const nextType = setupBag[0];
-    setStatus(`配置モード：残り ${left} 個（次：${TYPE_LABEL[nextType]}）※下3行に配置`);
-  } else {
-    setStatus("配置完了：準備OK → 「開始」を押してください");
+  if (!selectedCell) return;
+
+  if (setupStep === 1){
+    // STEP1：司令を確定配置
+    const {r,c} = selectedCell;
+    if (board[r][c]) return;
+
+    board[r][c] = makePiece(SIDE.YOU, TYPE.KING);
+    placedStack.push({r,c,type:TYPE.KING,side:SIDE.YOU});
+    logLine(`配置確定：あなた 司令（司）を (${r},${c})`);
+
+    // STEP2へ
+    setupStep = 2;
+    selectedCell = null;
+    btnConfirm.disabled = true;
+    updateHUDForSetup();
+    render();
+    return;
+  }
+
+  if (setupStep === 2){
+    if (step2Index >= STEP2_ORDER.length) return;
+    const t = STEP2_ORDER[step2Index];
+    const {r,c} = selectedCell;
+
+    if (!isYouArea(r,c)) return;
+    if (board[r][c]) return;
+
+    board[r][c] = makePiece(SIDE.YOU, t);
+    placedStack.push({r,c,type:t,side:SIDE.YOU});
+    logLine(`配置確定：あなた ${roleName(t)}（${dispChar(t)}）を (${r},${c})`);
+
+    step2Index += 1;
+    selectedCell = null;
+    btnConfirm.disabled = true;
+
+    // 配置完了チェック（開始ボタン有効化）
+    updateHUDForSetup();
+    render();
+    return;
   }
 }
 
+function undoOne(){
+  if (mode !== "SETUP") return;
+  if (placedStack.length === 0) return;
+
+  // 未確定選択がある場合は、まず選択を解除（戻すより直感的）
+  if (selectedCell){
+    selectedCell = null;
+    btnConfirm.disabled = true;
+    render();
+    updateHUDForSetup();
+    return;
+  }
+
+  const last = placedStack.pop();
+  board[last.r][last.c] = null;
+
+  // 司令を戻したらSTEP1へ復帰
+  if (last.type === TYPE.KING){
+    setupStep = 1;
+    step2Index = 0;
+    // STEP2で置いた駒が残っていたら全部消す（司令が消える＝再選択のため）
+    // 安全のため全消し→stackも司令以外はすでにpopで減っているが、盤面上の残りも消す
+    for (let r=0;r<BOARD_SIZE;r++){
+      for (let c=0;c<BOARD_SIZE;c++){
+        const p = board[r][c];
+        if (p && p.side===SIDE.YOU) board[r][c] = null;
+      }
+    }
+    placedStack = []; // 司令含めやり直し
+    logLine("1つ戻る：司令配置を取り消しました（STEP1に戻ります）");
+  } else {
+    // STEP2ならインデックスを1つ戻す
+    if (setupStep === 2 && step2Index > 0) step2Index -= 1;
+    logLine(`1つ戻る：${roleName(last.type)}（${dispChar(last.type)}）の配置を取り消しました`);
+  }
+
+  updateHUDForSetup();
+  render();
+}
+
+/** ===== Start Game ===== */
 function startGame(){
   if (mode !== "SETUP") return;
 
-  const youKing = findKingPos(SIDE.YOU);
-  if (!youKing){
-    setStatus("開始できません：あなたのKが未配置です（下3行にKを配置してください）");
-    return;
-  }
-  if (setupBag.length > 0){
-    setStatus(`開始できません：あなたの駒が未配置です（残り ${setupBag.length}）`);
+  // 配置完了条件：司令＋STEP2全て
+  if (setupStep !== 2 || step2Index < STEP2_ORDER.length){
+    setStatus("開始できません：配置が未完了です（STEPを完了してください）");
     return;
   }
 
-  // ★仕様：先攻後攻の決定は「初期配置完了→開始ボタン押下」のタイミング
+  // ★開始押下で初めて「先攻」と「相手配置」を確定（秘匿解除）
   firstSide = (Math.random() < 0.5) ? SIDE.YOU : SIDE.ENEMY;
-  setInitiative();
+  enemyPlaced = true;
+  placeEnemyRandom(); // ここで相手駒が確定＆盤面に出現
+
+  elInitiativeText.textContent = (firstSide===SIDE.YOU) ? "あなた" : "相手";
+  btnStart.disabled = true;
+  btnConfirm.disabled = true;
+  btnUndo.disabled = true;
 
   mode = "RUNNING";
-  btnStart.disabled = true;
   btnAuto.disabled = false;
   btnPause.disabled = false;
 
   setPhase("待機");
-  setStatus("開始しました。『オート進行（1ターン）』で進められます。");
-  logLine(`ゲーム開始。先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}`);
+  setStatus("開始しました。相手配置と先攻が確定しました。『オート進行（1ターン）』で進められます。");
+
+  logLine("開始：相手の初期配置をこのタイミングで確定しました（秘匿解除）");
+  logLine(`開始：先攻後攻をこのタイミングで決定しました（先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}）`);
+
+  // 開始直後の見た目はシンプルでOK（“出現”演出はログで表現）
   render();
 }
 
-/** ===== Pause ===== */
-function togglePause(){
-  if (mode === "RUNNING"){
-    mode = "PAUSED";
-    setStatus("一時停止中。『一時停止』を押すと再開します。");
-    setPhase("停止");
-    btnAuto.disabled = true;
-    logLine("一時停止");
-  } else if (mode === "PAUSED"){
-    mode = "RUNNING";
-    setStatus("再開しました。");
-    setPhase("待機");
-    // autoRunning中はボタンは戻さない（ターン完了後に復帰）
-    btnAuto.disabled = autoRunning ? true : false;
-    logLine("再開");
+/** ===== Enemy placement (random at start) ===== */
+function placeEnemyRandom(){
+  // 相手駒構成：司令(K) + 駆(S)×2 + 巡(C)×2 + 偵(T)×2
+  const types = [TYPE.KING, TYPE.S, TYPE.S, TYPE.C, TYPE.C, TYPE.T, TYPE.T];
+
+  // 司令位置：上端中心/左/右（あなたと対称っぽく）
+  const kChoices = [{r:0,c:3},{r:0,c:2},{r:0,c:4}];
+  const kPos = kChoices[Math.floor(Math.random()*kChoices.length)];
+  board[kPos.r][kPos.c] = makePiece(SIDE.ENEMY, TYPE.KING);
+
+  // 残りは上3行にランダム配置
+  const empties = [];
+  for (let r=0;r<=2;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      if (!board[r][c]) empties.push({r,c});
+    }
+  }
+  shuffleInPlace(empties);
+
+  let idx = 0;
+  for (const t of types){
+    if (t === TYPE.KING) continue;
+    const pos = empties[idx++];
+    if (!pos) break;
+    board[pos.r][pos.c] = makePiece(SIDE.ENEMY, t);
+  }
+}
+
+function shuffleInPlace(arr){
+  for (let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
 }
 
@@ -530,7 +710,6 @@ function findKingPos(side){
   }
   return null;
 }
-
 function allPieces(side){
   const out = [];
   for (let r=0;r<BOARD_SIZE;r++){
@@ -541,7 +720,6 @@ function allPieces(side){
   }
   return out;
 }
-
 function findPiecePosById(pieceId){
   for (let r=0;r<BOARD_SIZE;r++){
     for (let c=0;c<BOARD_SIZE;c++){
@@ -556,13 +734,12 @@ function moveDeltas(piece){
   const f = (piece.side===SIDE.YOU) ? -1 : +1;
   switch(piece.type){
     case TYPE.KING:
-      // Kは通常動かない（仕様）
-      return [];
-    case TYPE.S: // □: 前後
+      return []; // 司令は動かない
+    case TYPE.S: // 駆逐艦：前後1
       return [{dr:f,dc:0},{dr:-f,dc:0}];
-    case TYPE.T: // △: 斜め4
+    case TYPE.T: // 偵察艦：斜め4
       return [{dr:-1,dc:-1},{dr:-1,dc:+1},{dr:+1,dc:-1},{dr:+1,dc:+1}];
-    case TYPE.C: // ○: 前＋斜め前
+    case TYPE.C: // 巡洋艦：前＋斜め前
       return [{dr:f,dc:0},{dr:f,dc:-1},{dr:f,dc:+1}];
     default:
       return [];
@@ -590,7 +767,7 @@ function legalMoves(fromR, fromC){
   return moves;
 }
 
-/** ===== Loop Prevention (ping-pong) ===== */
+/** ===== Loop prevention (ping-pong) ===== */
 function pushHistory(pieceId, pos){
   if (!pieceHistory.has(pieceId)) pieceHistory.set(pieceId, []);
   const arr = pieceHistory.get(pieceId);
@@ -611,12 +788,11 @@ function detectPingPong(pieceId){
   }
   return { looped:false, avoid:null };
 }
-
 function manhattan(a,b){
   return Math.abs(a.r-b.r)+Math.abs(a.c-b.c);
 }
 
-/** ===== Evaluation for stagnation detection ===== */
+/** ===== Turn evaluation ===== */
 function materialScore(){
   const you = allPieces(SIDE.YOU).length;
   const en = allPieces(SIDE.ENEMY).length;
@@ -636,14 +812,11 @@ function kingDistanceScore(){
   return (sumEn - sumYou);
 }
 
-/** ===== Turn Flow (Auto Mode) ===== */
-
-// 動ける駒（=K以外）を毎ターン安定ソートで取得
+/** ===== Turn flow (interleaved queue) ===== */
 function movablePiecesSorted(side){
   const arr = allPieces(side).filter(x => x.p.type !== TYPE.KING);
 
-  // ★安定ソート仕様（ログ検証用に固定）：
-  //   y昇順 → x昇順 → id（文字列）昇順
+  // 安定ソート：y昇順→x昇順→id
   arr.sort((a,b)=>{
     if (a.r !== b.r) return a.r - b.r;
     if (a.c !== b.c) return a.c - b.c;
@@ -652,8 +825,6 @@ function movablePiecesSorted(side){
   return arr;
 }
 
-// 行動キュー（交互固定インターリーブ）を作る
-// 先攻側の1体目 → 後攻側の1体目 → 先攻側の2体目 → 後攻側の2体目 → …
 function buildActionQueue(){
   const first = firstSide;
   const second = (firstSide === SIDE.YOU) ? SIDE.ENEMY : SIDE.YOU;
@@ -665,26 +836,18 @@ function buildActionQueue(){
   let i=0, j=0;
   while(i<listA.length || j<listB.length){
     if (i<listA.length){
-      q.push({
-        id: listA[i].p.id,
-        side: listA[i].p.side,
-        type: listA[i].p.type
-      });
+      q.push({ id:listA[i].p.id, side:listA[i].p.side, type:listA[i].p.type });
       i++;
     }
     if (j<listB.length){
-      q.push({
-        id: listB[j].p.id,
-        side: listB[j].p.side,
-        type: listB[j].p.type
-      });
+      q.push({ id:listB[j].p.id, side:listB[j].p.side, type:listB[j].p.type });
       j++;
     }
   }
   return q;
 }
 
-// 1駒専用AI：①Kを取れる ②何か取れる ③相手Kに近づく
+// 1駒AI：①司令を取れる ②何か取れる ③相手司令に近づく
 function chooseBestMoveForPiece(fromR, fromC){
   const piece = board[fromR][fromC];
   if (!piece) return null;
@@ -696,7 +859,6 @@ function chooseBestMoveForPiece(fromR, fromC){
   let moves = legalMoves(fromR, fromC);
   if (moves.length === 0) return null;
 
-  // ping-pong avoid（同駒の往復を避ける）
   const {looped, avoid} = detectPingPong(piece.id);
   if (looped && avoid){
     const filtered = moves.filter(m => !(m.to.r===avoid.r && m.to.c===avoid.c));
@@ -710,7 +872,6 @@ function chooseBestMoveForPiece(fromR, fromC){
     return { move:m, capturesK, capturesAny, dist };
   });
 
-  // 揺らぎ：停滞時は「上位N候補からランダム」を強める
   const useShake = (stagnationCounter >= Math.floor(STAGNATION_LIMIT/2));
 
   candidates.sort((a,b)=>{
@@ -726,17 +887,14 @@ function chooseBestMoveForPiece(fromR, fromC){
     );
     return topSet[Math.floor(Math.random()*topSet.length)].move;
   } else {
-    // capturesK があるならそこからランダム（最優先は維持）
     const kingCaps = candidates.filter(x=>x.capturesK);
     if (kingCaps.length>0) return kingCaps[Math.floor(Math.random()*kingCaps.length)].move;
 
-    // 上位最大5候補からランダム
     const topN = candidates.slice(0, Math.min(5, candidates.length));
     return topN[Math.floor(Math.random()*topN.length)].move;
   }
 }
 
-/** ===== Apply move ===== */
 function applyMove(m){
   const piece = board[m.from.r][m.from.c];
   if (!piece) return {ok:false, captured:null};
@@ -748,13 +906,12 @@ function applyMove(m){
   return {ok:true, captured};
 }
 
-// ターン終端の勝敗チェック（仕様：必ず走る）
 function checkWinnerAtTurnEnd(){
   const youK = findKingPos(SIDE.YOU);
   const enK  = findKingPos(SIDE.ENEMY);
 
-  if (!enK) return "あなたの勝ち";
-  if (!youK) return "相手の勝ち";
+  if (!enK) return "あなたの勝ち（相手司令を制覇）";
+  if (!youK) return "相手の勝ち（あなたの司令が制覇された）";
   if (turn >= MAX_TURNS) return "引き分け（最大ターン）";
   return null;
 }
@@ -768,7 +925,6 @@ async function runOneTurn(){
   btnAuto.disabled = true;
 
   try{
-    // 先に最大ターン超過を弾く（念のため）
     if (turn >= MAX_TURNS){
       endGame("引き分け（最大ターン）");
       return;
@@ -777,35 +933,34 @@ async function runOneTurn(){
     turn += 1;
     setTurn(turn);
 
-    // ===== ターン開始ログ（仕様フォーマット） =====
+    // ターン開始ログ（指定フォーマット）
     logLine(`ターン${turn}開始（先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}）`);
     setPhase("ターン進行中");
     setStatus("ターン進行中…（一時停止できます）");
 
-    // ターン開始時に行動キューを確定
     const queue = buildActionQueue();
 
-    // ===== 交互固定キューを上から処理（手番=1駒） =====
     for (const act of queue){
       if (mode !== "RUNNING") return;
       await waitWhilePaused();
 
       const who = (act.side === SIDE.YOU) ? "あなた" : "相手";
-      const pieceLabel = TYPE_LABEL[act.type] || act.type;
+      const pieceRole = roleName(act.type);
+      const pieceChar = dispChar(act.type);
 
-      // 倒された駒はこのターン以降のキューから除外（＝存在しないのでスキップ）
+      logLine(`いま動く：${who} 〔${pieceRole}（${pieceChar}）〕`);
+
       const pos = findPiecePosById(act.id);
-      logLine(`いま動く：${who} 〔${pieceLabel}〕`);
 
+      // 倒された駒はそのターン以降のキューから除外（＝ここでスキップ）
       if (!pos){
-        logLine(`→ 行動なし（すでに退場）`);
+        logLine("→ 行動なし（すでに退場）");
         await sleepWithPause(SPEED.betweenActionMs);
         continue;
       }
 
-      // Kはキューに入れていないが、念のため
       if (pos.p.type === TYPE.KING){
-        logLine(`→ 行動なし（Kは通常移動しない）`);
+        logLine("→ 行動なし（司令は通常移動しない）");
         await sleepWithPause(SPEED.betweenActionMs);
         continue;
       }
@@ -818,37 +973,38 @@ async function runOneTurn(){
         continue;
       }
 
-      // 演出（テンポはSPEEDで一括調整）
+      // 演出
       setHighlights(mv.from, mv.to);
       await sleepWithPause(SPEED.previewMs);
 
       const result = applyMove(mv);
-
-      // 履歴
-      if (pos && pos.p) pushHistory(pos.p.id, mv.to);
+      pushHistory(pos.p.id, mv.to);
 
       render();
       await sleepWithPause(SPEED.afterMs);
       clearHighlights();
 
-      const kingCaptured = !!(result.captured && result.captured.type === TYPE.KING);
+      const captured = result.captured;
+      const kingCaptured = !!(captured && captured.type === TYPE.KING);
+
       if (kingCaptured){
-        logLine(`決着：${who} が相手Kを制覇`);
+        logLine(`決着：${who} が相手の司令を制覇`);
         endGame(`${who}の勝ち`);
         return;
       }
-      if (result.captured){
-        const capWho = (result.captured.side===SIDE.YOU) ? "あなた" : "相手";
-        logLine(`捕獲：${who} 〔${pieceLabel}〕 が ${capWho} 〔${TYPE_LABEL[result.captured.type]}〕 を取った`);
+
+      if (captured){
+        const capWho = (captured.side===SIDE.YOU) ? "あなた" : "相手";
+        logLine(`捕獲：${who} の ${pieceRole}（${pieceChar}）が ${capWho} の ${roleName(captured.type)}（${dispChar(captured.type)}）を取った`);
       }
 
       await sleepWithPause(SPEED.betweenActionMs);
     }
 
-    // ===== ターン終了ログ（仕様フォーマット） =====
+    // ターン終了ログ
     logLine(`ターン${turn}終了`);
 
-    // ターン終端の勝敗/引き分けチェック（仕様：必ず走る）
+    // ターン終端勝敗チェック（必ず）
     const win = checkWinnerAtTurnEnd();
     if (win){
       endGame(win);
@@ -860,9 +1016,7 @@ async function runOneTurn(){
     const kScore = kingDistanceScore();
     const progressed = (mScore !== lastMaterialScore) || (kScore !== lastKingDistanceScore);
 
-    if (!progressed) stagnationCounter += 1;
-    else stagnationCounter = 0;
-
+    stagnationCounter = progressed ? 0 : (stagnationCounter + 1);
     lastMaterialScore = mScore;
     lastKingDistanceScore = kScore;
 
@@ -877,6 +1031,23 @@ async function runOneTurn(){
   } finally{
     autoRunning = false;
     if (mode === "RUNNING") btnAuto.disabled = false;
+  }
+}
+
+/** ===== Pause ===== */
+function togglePause(){
+  if (mode === "RUNNING"){
+    mode = "PAUSED";
+    setStatus("一時停止中。『一時停止』を押すと再開します。");
+    setPhase("停止");
+    btnAuto.disabled = true;
+    logLine("一時停止");
+  } else if (mode === "PAUSED"){
+    mode = "RUNNING";
+    setStatus("再開しました。");
+    setPhase("待機");
+    btnAuto.disabled = autoRunning ? true : false;
+    logLine("再開");
   }
 }
 
