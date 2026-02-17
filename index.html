@@ -163,8 +163,9 @@
   <div class="wrap">
     <div class="card">
       <div class="row small muted">
-        <span class="pill">あなた：下側（下3行）</span>
-        <span class="pill">相手：上側（上3行）※開始まで秘匿</span>
+        <span class="pill">あなた：下側（下2行）</span>
+        <span class="pill">相手：上側（上2行）※開始まで秘匿</span>
+
         <span class="pill">勝利：相手「司令」を制覇</span>
         <span class="pill">「司令」は通常移動しない</span>
       </div>
@@ -377,13 +378,14 @@ function zoneOfRow(r){
   return "neutral";
 }
 function isYouArea(r,c){
-  // 自軍配置範囲：下3行（4,5,6）
-  return (r>=4 && r<=6);
+  // 自軍配置範囲：下2行（5,6）
+  return (r>=5 && r<=6);
 }
 function isEnemyArea(r,c){
-  // 相手配置範囲：上3行（0,1,2）
-  return (r>=0 && r<=2);
+  // 相手配置範囲：上2行（0,1）
+  return (r>=0 && r<=1);
 }
+
 
 /** ===== Piece creation ===== */
 function makePiece(side, type){
@@ -675,13 +677,14 @@ function placeEnemyRandom(){
   const kPos = kChoices[Math.floor(Math.random()*kChoices.length)];
   board[kPos.r][kPos.c] = makePiece(SIDE.ENEMY, TYPE.KING);
 
-  // 残りは上3行にランダム配置
+  // 残りは上2行にランダム配置
   const empties = [];
-  for (let r=0;r<=2;r++){
+  for (let r=0;r<=1;r++){
     for (let c=0;c<BOARD_SIZE;c++){
       if (!board[r][c]) empties.push({r,c});
     }
   }
+
   shuffleInPlace(empties);
 
   let idx = 0;
@@ -1071,3 +1074,4 @@ function endGame(resultText){
 </script>
 </body>
 </html>
+
