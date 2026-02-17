@@ -176,7 +176,7 @@
 
       <div class="grid2">
         <div class="hintBox">
-          <div><span class="kbd">駒の表示（盤面）</span>：司 / 秘 / 駆 / 巡 / 偵</div>
+          <div><span class="kbd">駒の表示（盤面）</span>：司令 / 秘 / 駆 / 巡 / 偵</div>
           <div><span class="kbd">駒の名称（ログ）</span>：司令 / 秘密兵器 / 駆逐艦 / 巡洋艦 / 偵察艦</div>
           <div class="muted">※内部キー（K/Q/S/C/T）はそのまま</div>
         </div>
@@ -258,7 +258,7 @@ const TYPE = {
 
 // 盤面表示（漢字1文字）
 const DISP_CHAR = {
-  K: "司",
+  K: "司令",
   Q: "秘",
   S: "駆",
   C: "巡",
@@ -447,7 +447,7 @@ function updateHUDForSetup(){
   setPhase("配置");
   if (setupStep === 1){
     elSetupStepText.textContent = "STEP1（司令位置）";
-    elCurrentPieceText.textContent = `司（${roleName(TYPE.KING)}）`;
+    elCurrentPieceText.textContent = `${dispChar(TYPE.KING)}（${roleName(TYPE.KING)}）`;
     setStatus("配置：STEP1 司令位置（中心/左/右の3択）をクリックで選び、決定してください");
     btnUndo.disabled = true;
     btnStart.disabled = true;
@@ -559,7 +559,7 @@ function confirmSelection(){
 
     board[r][c] = makePiece(SIDE.YOU, TYPE.KING);
     placedStack.push({r,c,type:TYPE.KING,side:SIDE.YOU});
-    logLine(`配置確定：あなた 司令（司）を (${r},${c})`);
+    logLine(`配置確定：あなた 司令（司令）を (${r},${c})`);
 
     // STEP2へ
     setupStep = 2;
@@ -1074,4 +1074,5 @@ function endGame(resultText){
 </script>
 </body>
 </html>
+
 
