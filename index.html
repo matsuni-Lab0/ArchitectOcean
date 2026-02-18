@@ -704,7 +704,27 @@ function randomizeEnemyPlacement(){
   }
 }
 
+function ensureGridIntegrity(context){
+  // grid が壊れている／行が欠けている場合に備えて再構築（駒情報は pieces から復元）
+  const ok = Array.isArray(grid)
+    && grid.length === H
+    && grid.every(row => Array.isArray(row) && row.length === W);
+  if(ok) return;
+  const rebuilt = Array.from({length:H}, ()=>Array.from({length:W}, ()=>null));
+  for(const p of (pieces||[])){
+    if(!p || !p.alive) continue;
+    if(p.y>=0 && p.y<H && p.x>=0 && p.x<W){
+      rebuilt[p.y][p.x] = p;
+    }
+  }
+  grid = rebuilt;
+  if(typeof logErr === 'function'){
+    logErr(`盤面データに不整合があったため再構築しました（${context||'unknown'}）`);
+  }
+}
+
 function renderBoard(){
+  ensureGridIntegrity('renderBoard');
   const kOpts = (phase==="setup" && setupStep===1) ? getCommanderOptions() : [];
 
   for(let y=0;y<H;y++){
