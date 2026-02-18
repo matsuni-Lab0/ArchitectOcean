@@ -232,7 +232,7 @@
 <body>
   <h1>
     Architect Ocean 7×7
-    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v6</span></span>
+    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v8</span></span>
   </h1>
 
   <div class="wrap">
@@ -364,6 +364,112 @@ const ZONE = {
   FRONTLINE_ROW: 4
 };
 
+
+// =========================================================
+// v8: Aモードでも「駆 / 巡 / 偵」ごとに規定行動（駒AI）を固定する
+// - 秘密兵器（Q/秘密兵器）はオートモードでは使用しない（配置もしない）
+// - 司令（K/司令）は現状「動けない」
+// =========================================================
+const CAPTURE_VALUE = { K: 1000, Q: 260, C: 180, D: 160, S: 140 };
+const D_CAPTURE_PREF = { S: 300, D: 200, C: 120, Q: 350, K: 9999 }; // 駆逐艦は小型優先（規定）
+
+function moveKey(m){ return m.to.y * 10 + m.to.x; } // 7x7なので十分
+function distToK(m, enemyK){
+  if(!enemyK) return 999;
+  return manhattan(m.to.x, m.to.y, enemyK.x, enemyK.y);
+}
+function distToFrontline(m){
+  return Math.abs(m.to.y - ZONE.FRONTLINE_ROW);
+}
+function advanceScore(m, side){
+  // enemyK が不明な（デバッグ用の）状況のための前進指標
+  // 自軍（下）＝ y が小さいほど前進／敵軍（上）＝ y が大きいほど前進
+  return (side === "you") ? -m.to.y : m.to.y;
+}
+function pickMoveForActor(actor, moves, enemyK){
+  // 共通：司令を取れるなら最優先（勝利条件）
+  const kCap = moves.find(m => m.capture && m.capture.kind === "K");
+  if(kCap) return { move: kCap, reason: "司令を取ります" };
+
+  // 以降、駒ごとの「規定行動」
+  if(actor.kind === "S"){
+    // 偵察艦（偵）：司令へ接近を最優先。距離同点なら「取らない（非捕獲）」を優先して索敵らしさを固定。
+    const best = moves.slice().sort((a,b)=>{
+      const da = enemyK ? distToK(a, enemyK) : 999;
+      const db = enemyK ? distToK(b, enemyK) : 999;
+      if(da !== db) return da - db;
+      const ca = a.capture ? 1 : 0; // 非捕獲優先
+      const cb = b.capture ? 1 : 0;
+      if(ca !== cb) return ca - cb;
+      if(!enemyK){
+        const pa = advanceScore(a, actor.side);
+        const pb = advanceScore(b, actor.side);
+        if(pa !== pb) return pb - pa;
+      }
+      return moveKey(a) - moveKey(b);
+    })[0];
+    return { move: best, reason: "偵察：司令に近づきます" };
+  }
+
+  if(actor.kind === "C"){
+    // 巡洋艦（巡）：戦闘（捕獲）を優先。取れない場合は司令へ接近。
+    const caps = moves.filter(m => m.capture);
+    if(caps.length){
+      const best = caps.slice().sort((a,b)=>{
+        const va = CAPTURE_VALUE[a.capture.kind] || 0;
+        const vb = CAPTURE_VALUE[b.capture.kind] || 0;
+        if(va !== vb) return vb - va;
+        const da = distToK(a, enemyK);
+        const db = distToK(b, enemyK);
+        if(da !== db) return da - db;
+        return moveKey(a) - moveKey(b);
+      })[0];
+      return { move: best, reason: "巡洋：敵艦を撃沈します" };
+    }
+    const best = moves.slice().sort((a,b)=>{
+      const da = distToK(a, enemyK);
+      const db = distToK(b, enemyK);
+      if(da !== db) return da - db;
+      return moveKey(a) - moveKey(b);
+    })[0];
+    return { move: best, reason: "巡洋：司令へ接近します" };
+  }
+
+  // 駆逐艦（駆）：前線（黄色列）を意識。捕獲できるなら「規定の優先順位」で狙う。
+  if(actor.kind === "D"){
+    const caps = moves.filter(m => m.capture);
+    if(caps.length){
+      const best = caps.slice().sort((a,b)=>{
+        const va = D_CAPTURE_PREF[a.capture.kind] ?? (CAPTURE_VALUE[a.capture.kind] || 0);
+        const vb = D_CAPTURE_PREF[b.capture.kind] ?? (CAPTURE_VALUE[b.capture.kind] || 0);
+        if(va !== vb) return vb - va;
+        const da = distToK(a, enemyK);
+        const db = distToK(b, enemyK);
+        if(da !== db) return da - db;
+        return moveKey(a) - moveKey(b);
+      })[0];
+      return { move: best, reason: "駆逐：優先目標を撃沈します" };
+    }
+    const best = moves.slice().sort((a,b)=>{
+      const fa = distToFrontline(a);
+      const fb = distToFrontline(b);
+      if(fa !== fb) return fa - fb; // まず前線へ
+      const da = distToK(a, enemyK);
+      const db = distToK(b, enemyK);
+      if(da !== db) return da - db; // 次に司令へ
+      return moveKey(a) - moveKey(b);
+    })[0];
+    return { move: best, reason: "駆逐：前線を維持しつつ前進します" };
+  }
+
+  // それ以外（将来拡張用）は従来の汎用方針
+  const anyCap = moves.find(m => m.capture);
+  if(anyCap) return { move: anyCap, reason: "駒を取ります" };
+  const best = moves[0];
+  return { move: best, reason: "移動します" };
+}
+
+
 const boardEl = document.getElementById("board");
 const logEl = document.getElementById("log");
 const btnReset = document.getElementById("btnReset");
@@ -406,7 +512,7 @@ window.onerror = (msg, src, line, col) => {
   logErr(`JSエラー: ${msg} (${line}:${col})`);
 };
 
-/* 残り配置順（固定） */
+/* 残り配置順（固定） ※Aモードでは「秘(Q)」は使わない */
 const SETUP_ORDER = [
   { kind: "D" }, { kind: "D" },
   { kind: "C" }, { kind: "C" },
@@ -852,40 +958,15 @@ async function doAutoAction(actor, token){
   }
 
   const enemyK = findCommander(opponent(actor.side));
-  let best = null;
+  const picked = pickMoveForActor(actor, moves, enemyK);
+  const best = picked?.move || moves[0];
+  const reason = picked?.reason || "移動します";
 
-  if(enemyK){
-    best = moves.find(m=>m.capture && m.capture.kind==="K");
-    if(best){
-      await animateMove(actor, best, token, "司令を取ります");
-      applyMove(actor, best);
-      return true;
-    }
-  }
-
-  best = moves.find(m=>m.capture);
-  if(best){
-    await animateMove(actor, best, token, "駒を取ります");
-    applyMove(actor, best);
-    return true;
-  }
-
-  if(enemyK){
-    best = moves
-      .slice()
-      .sort((m1,m2)=>{
-        const d1 = manhattan(m1.to.x,m1.to.y, enemyK.x, enemyK.y);
-        const d2 = manhattan(m2.to.x,m2.to.y, enemyK.x, enemyK.y);
-        return d1-d2;
-      })[0];
-  }else{
-    best = moves[0];
-  }
-
-  await animateMove(actor, best, token, "司令に近づきます");
+  await animateMove(actor, best, token, reason);
   applyMove(actor, best);
   return true;
 }
+
 
 async function animateMove(actor, move, token, reason){
   const fromEl = getCellEl(actor.x, actor.y);
@@ -921,16 +1002,51 @@ function applyMove(actor, move){
 }
 
 function legalMoves(p){
-  const dirs = [
-    {dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},
-  ];
+  // v8: 駒の移動ルールを「前庭プロトタイプ準拠」に固定
+  // 参照（要点）：
+  // - 司令（K）は固定（移動なし）
+  // - 駆逐艦（D）は前後（縦）1マス
+  // - 巡洋艦（C）は前／斜め前（左・右）1マス
+  // - 偵察艦（S）は斜め4方向1マス
+  // - 秘密兵器（Q）は8方向1マス（※Aモードでは未使用だが将来用に実装）
+  //
+  // 「前」の定義：自軍＝上（y-1）へ進む／相手＝下（y+1）へ進む
+  const f = (p.side === "you") ? -1 : +1;
+
+  let deltas = [];
+  switch(p.kind){
+    case "K":
+      deltas = [];
+      break;
+    case "D": // 駆：前後（縦のみ）
+      deltas = [{dx:0,dy:f},{dx:0,dy:-f}];
+      break;
+    case "C": // 巡：前 + 斜め前（左/右）
+      deltas = [{dx:0,dy:f},{dx:-1,dy:f},{dx:+1,dy:f}];
+      break;
+    case "S": // 偵：斜め4方向
+      deltas = [{dx:-1,dy:-1},{dx:+1,dy:-1},{dx:-1,dy:+1},{dx:+1,dy:+1}];
+      break;
+    case "Q": // 秘：8方向（未使用）
+      deltas = [
+        {dx:-1,dy:-1},{dx:0,dy:-1},{dx:+1,dy:-1},
+        {dx:-1,dy:0},             {dx:+1,dy:0},
+        {dx:-1,dy:+1},{dx:0,dy:+1},{dx:+1,dy:+1},
+      ];
+      break;
+    default:
+      // 安全策：未知の駒は動かさない
+      deltas = [];
+  }
+
   const res = [];
-  for(const d of dirs){
+  for(const d of deltas){
     const nx = p.x + d.dx;
     const ny = p.y + d.dy;
     if(nx<0||nx>=W||ny<0||ny>=H) continue;
 
-    const target = grid[ny][nx];
+    const row = grid[ny] || [];
+    const target = row[nx] || null;
     if(target && target.side===p.side) continue;
 
     res.push({
