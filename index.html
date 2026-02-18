@@ -3,260 +3,360 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Architect Ocean 7×7 - Auto Mode (Setup Steps + Hidden Enemy/Initiative)</title>
+  <title>Architect Ocean 7×7 - v0.2.1準拠（Aモード：オート＋配置UI段階化）</title>
   <style>
     :root{
       --cell: 56px;
       --gap: 6px;
-      --panel: #f7f7f7;
-      --border: #ddd;
-      --text: #111;
+      --bg: #0b1220;
+      --panel: #101b33;
+      --panel2: #0f1930;
+      --line: rgba(255,255,255,0.12);
+      --txt: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.65);
+      --good: #27d6a5;
+      --bad: #ff5a6f;
+      --warn: #f7c948;
+      --you: #4aa3ff;
+      --enemy: #ff8a4a;
+      --hl: rgba(255,255,255,0.16);
     }
     body{
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
-      color: var(--text);
-      margin: 0;
-      padding: 16px;
-      background: #fff;
+      margin:0;
+      background: radial-gradient(800px 600px at 20% 0%, #13254a 0%, var(--bg) 55%);
+      color: var(--txt);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
     }
-    h1{ font-size: 18px; margin: 0 0 8px; }
+    header{
+      padding:14px 16px 10px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(16,27,51,0.85), rgba(16,27,51,0.35));
+      backdrop-filter: blur(8px);
+    }
+    header h1{
+      margin:0;
+      font-size:16px;
+      font-weight:700;
+      letter-spacing:0.5px;
+    }
+    header .sub{
+      margin-top:4px;
+      font-size:12px;
+      color: var(--muted);
+      line-height:1.4;
+    }
     .wrap{
-      display: grid;
-      grid-template-columns: 1fr 440px;
-      gap: 14px;
-      align-items: start;
+      display:flex;
+      gap:14px;
+      padding:14px;
+      max-width: 1180px;
+      margin: 0 auto;
     }
-    .card{
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+    .left{
+      flex: 0 0 auto;
+    }
+    .right{
+      flex: 1 1 auto;
+      min-width: 320px;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(16,27,51,0.82), rgba(16,27,51,0.58));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.25);
+      overflow:hidden;
+    }
+    .boardWrap{
       padding: 12px;
     }
     .board{
-      display: grid;
+      display:grid;
       grid-template-columns: repeat(7, var(--cell));
+      grid-template-rows: repeat(7, var(--cell));
       gap: var(--gap);
-      justify-content: start;
-      user-select: none;
+      user-select:none;
     }
     .cell{
       width: var(--cell);
       height: var(--cell);
-      border: 1px solid var(--border);
       border-radius: 10px;
-      display: grid;
-      place-items: center;
-      background: #fff;
-      cursor: pointer;
-      position: relative;
-      font-weight: 800;
-      font-size: 18px;
-    }
-    .cell[data-zone="enemy"]{ background: #fff; }
-    .cell[data-zone="neutral"]{ background: #fff; }
-    .cell[data-zone="you"]{ background: #fff; }
-
-    /* subtle side tint */
-    .p-you{ color:#111; }
-    .p-enemy{ color:#7a1212; }
-
-    /* highlight */
-    .hi-from{
-      outline: 3px solid #000;
-      box-shadow: 0 0 12px rgba(255, 230, 0, 0.95);
-      z-index: 2;
-    }
-    .hi-to{
-      outline: 2px dashed #000;
-      z-index: 2;
-    }
-    .blink-to{
-      animation: blink 0.42s step-end infinite;
-    }
-    @keyframes blink{ 50%{ opacity: 0.35; } }
-
-    .row{
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin: 8px 0;
-      align-items: center;
-    }
-    button{
-      padding: 10px 10px;
-      border-radius: 10px;
-      border: 1px solid #bbb;
-      background: #fff;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    button:disabled{
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-    .muted{ opacity: 0.78; font-size: 12px; line-height: 1.35; }
-    .status{
-      font-size: 14px;
-      margin: 6px 0 0;
-      padding: 8px 10px;
-      border-radius: 10px;
-      background: #fff;
-      border: 1px dashed #ccc;
-      min-height: 44px;
+      border: 1px solid rgba(255,255,255,0.14);
       display:flex;
       align-items:center;
-      gap:8px;
+      justify-content:center;
+      font-weight:800;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      background: rgba(255,255,255,0.05);
+      position:relative;
     }
-    .pill{
-      font-size: 12px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid #ccc;
-      background: #fff;
-      white-space: nowrap;
-    }
-    .bigNow{
-      font-size: 18px;
-      font-weight: 900;
-      padding: 6px 10px;
-      border-radius: 12px;
-      border: 1px solid #bbb;
-      background: #fff;
-    }
-    .log{
-      height: 380px;
-      overflow: auto;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      white-space: pre-wrap;
-    }
-    .kbd{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
-      padding: 2px 6px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: #fff;
-    }
-    .hr{ height:1px;background:#e6e6e6;margin:10px 0; }
-    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    .small{ font-size:12px; }
+    .cell[data-zone="enemy"]{ background: rgba(255,138,74,0.07); }
+    .cell[data-zone="you"]{ background: rgba(74,163,255,0.07); }
+    .cell[data-zone="frontline"]{ background: rgba(255,255,255,0.075); border-color: rgba(255,255,255,0.18); }
+    .cell.selectable:hover{ outline: 2px solid rgba(255,255,255,0.22); cursor:pointer; }
+    .cell.selected{ outline: 3px solid rgba(255,255,255,0.34); background: rgba(255,255,255,0.10); }
+    .cell.hl{ box-shadow: 0 0 0 3px rgba(255,255,255,0.22) inset; background: rgba(255,255,255,0.10); }
 
-    .hintBox{
-      background:#fff;
-      border:1px solid #ddd;
-      border-radius:10px;
-      padding:10px;
-      font-size:12px;
-      line-height:1.35;
+    .p-you{
+      color: var(--you);
+      text-shadow: 0 0 10px rgba(74,163,255,0.20);
+    }
+    .p-enemy{
+      color: var(--enemy);
+      text-shadow: 0 0 10px rgba(255,138,74,0.20);
+    }
+
+    .hud{
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--line);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 12px;
+      align-items:center;
+      background: rgba(15,25,48,0.65);
+    }
+    .hud .tag{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hud .tag b{
+      color: var(--txt);
+      font-weight: 800;
+    }
+    .hud .tag .big{
+      font-size: 13px;
+      color: var(--txt);
+      font-weight: 900;
+      letter-spacing:0.3px;
+    }
+    .hud .grow{
+      flex: 1 1 auto;
+      min-width: 180px;
+    }
+    .status{
+      width: 100%;
+      font-size: 12px;
+      color: var(--muted);
+      padding-top: 2px;
+      line-height: 1.45;
+    }
+    .status.good{ color: rgba(39,214,165,0.95); }
+    .status.bad{ color: rgba(255,90,111,0.95); }
+    .status.warn{ color: rgba(247,201,72,0.95); }
+
+    .controls{
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(16,27,51,0.65);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .btnRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    button{
+      appearance:none;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06);
+      color: var(--txt);
+      padding: 9px 12px;
+      border-radius: 12px;
+      font-weight: 800;
+      letter-spacing:0.3px;
+      cursor:pointer;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+      font-size: 13px;
+    }
+    button:hover{ background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.24); }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      background: rgba(74,163,255,0.18);
+      border-color: rgba(74,163,255,0.40);
+    }
+    button.good{
+      background: rgba(39,214,165,0.16);
+      border-color: rgba(39,214,165,0.36);
+    }
+    button.warn{
+      background: rgba(247,201,72,0.16);
+      border-color: rgba(247,201,72,0.36);
+    }
+    button.bad{
+      background: rgba(255,90,111,0.16);
+      border-color: rgba(255,90,111,0.36);
+    }
+    button:disabled{
+      opacity: 0.4;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .log{
+      padding: 10px 12px;
+      height: 460px;
+      overflow:auto;
+      font-size: 12px;
+      line-height:1.5;
+      background: rgba(16,27,51,0.45);
+    }
+    .log .line{
+      padding: 6px 8px;
+      border-bottom: 1px dashed rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.78);
+    }
+    .log .line b{
+      color: var(--txt);
+    }
+    .log .line.good{ color: rgba(39,214,165,0.95); }
+    .log .line.bad{ color: rgba(255,90,111,0.95); }
+    .log .line.warn{ color: rgba(247,201,72,0.95); }
+
+    .mini{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hint{
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+      background: rgba(15,25,48,0.55);
+      font-size: 12px;
+      color: var(--muted);
+      line-height:1.55;
+    }
+    .hint b{ color: var(--txt); }
+    .kbd{
+      padding: 1px 6px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-bottom-color: rgba(255,255,255,0.10);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      color: rgba(255,255,255,0.85);
+      margin: 0 2px;
+    }
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 8px 10px;
+      margin-top: 6px;
+    }
+    .legend .tag{
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.74);
     }
   </style>
 </head>
-
 <body>
-  <h1>アーキテクト・オーシャン（試作・7×7）— オートモード（介入なし）＋配置UI段階化</h1>
+<header>
+  <h1>Architect Ocean 7×7（Aモード：オート／介入なし）</h1>
+  <div class="sub">
+    v0.2.1準拠：<b>オートモード（介入カードなし）</b>／開始前は<b>相手配置・先攻後攻を秘匿</b>／自軍配置は<b>段階UI</b>で確定
+  </div>
+</header>
 
-  <div class="wrap">
-    <div class="card">
-      <div class="row small muted">
-        <span class="pill">あなた：下側（下2行）</span>
-        <span class="pill">相手：上側（上2行）※開始まで秘匿</span>
-
-        <span class="pill">勝利：相手「司令」を制覇</span>
-        <span class="pill">「司令」は通常移動しない</span>
+<div class="wrap">
+  <div class="left">
+    <div class="panel">
+      <div class="boardWrap">
+        <div id="board" class="board"></div>
       </div>
-
-      <div id="board" class="board" aria-label="board"></div>
-
-      <div class="hr"></div>
-
-      <div class="grid2">
-        <div class="hintBox">
-          <div><span class="kbd">駒の表示（盤面）</span>：司令 / 秘 / 駆 / 巡 / 偵</div>
-          <div><span class="kbd">駒の名称（ログ）</span>：司令 / 秘密兵器 / 駆逐艦 / 巡洋艦 / 偵察艦</div>
-          <div class="muted">※内部キー（K/Q/S/C/T）はそのまま</div>
-        </div>
-        <div class="hintBox">
-          <div><span class="kbd">ターン定義</span>：交互固定キューを全消化した単位</div>
-          <div><span class="kbd">手番</span>：1駒ぶんの行動</div>
-          <div><span class="kbd">行動キュー</span>：ターン開始時に作成（動ける駒のみ）</div>
-        </div>
+      <div class="hud">
+        <div class="tag"><span>モード</span> <b id="modeText">配置</b></div>
+        <div class="tag"><span>フェーズ</span> <b id="phaseIndicator">配置STEP1</b></div>
+        <div class="tag"><span>先攻</span> <b id="initiativeText">？</b></div>
+        <div class="tag"><span>ターン</span> <b id="turnText">0</b></div>
+        <div class="tag"><span>いま置く駒</span> <b class="big" id="currentPieceText">司令</b></div>
+        <div class="tag" id="frontlineCountDisplay" style="display:none;"><span>前線</span> <b id="frontlineCount">0</b>/2</div>
+        <div id="status" class="status grow">配置STEP1：司令位置を選んで決定してください</div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <button id="btnReset">リセット</button>
-        <button id="btnConfirm" disabled>決定</button>
-        <button id="btnUndo" disabled>1つ戻る</button>
-        <button id="btnStart" disabled>開始</button>
-      </div>
-
-      <div class="row">
-        <span class="pill">配置</span><span id="setupStepText">STEP1</span>
-        <span class="pill">今置く駒</span><span id="currentPieceText" class="bigNow">司（司令）</span>
-      </div>
-
-      <div id="status" class="status">
-        <span class="pill">状態</span>
-        <span id="statusText">配置：STEP1 司令位置（3択）を選び、決定してください</span>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="row small muted">
-        <span class="pill">先攻</span><span id="initiativeText">？</span>
-        <span class="pill">ターン</span><span id="turnNum">0</span>
-        <span class="pill">進行</span><span id="phaseText">配置</span>
-      </div>
-
-      <div class="row">
-        <button id="btnAuto" disabled>オート進行（1ターン）</button>
-        <button id="btnPause" disabled>一時停止</button>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="log" id="log"></div>
     </div>
   </div>
 
-<script>
-/** =========================================================
- *  Architect Ocean 7×7 - Auto Mode
- *  追加要件（今回の必須）
- *   - 駒名の漢字化：盤面/ログ/UIで「司/秘/駆/巡/偵」を使用（ログは役割名）
- *   - 配置UI段階化：STEP1（司令3択）→ 決定 → STEP2（残りを固定順で配置）
- *   - 秘匿：
- *       ・先攻後攻は開始押下で初めて決定し、開始前は「先攻：？」表示
- *       ・相手の配置は開始押下で初めて確定し、開始前は盤面に表示しない
- *
- *  オートモード（介入なし）
- *   - ターン（=ラウンド）：交互固定（インターリーブ）キュー全消化
- *   - 手番（=アクション）：1駒ぶんの行動
- *   - 行動キュー：ターン開始時に、動ける駒のみから作成
- *   - ソート安定：y昇順→x昇順→id（毎ターン同じ）
- * ========================================================= */
+  <div class="right">
+    <div class="panel">
+      <div class="controls">
+        <div class="btnRow">
+          <button id="btnConfirm" class="good" disabled>決定</button>
+          <button id="btnUndo" class="warn" disabled>1つ戻る</button>
+          <button id="btnStart" class="primary" disabled>開始</button>
+          <button id="btnPause" disabled>一時停止</button>
+          <button id="btnReset" class="bad">リセット</button>
+          <button id="btnSkipFrontline" disabled style="display:none;">前線配置をスキップ</button>
+        </div>
+        <div class="mini">
+          盤面：7×7 ／ 自軍エリア：下2行 ／ 相手エリア：上2行 ／ 前線：4行目（任意）
+        </div>
+      </div>
 
-/** ===== Constants ===== */
+      <div id="log" class="log"></div>
+
+      <div class="hint">
+        <b>操作の要点</b><br/>
+        ・配置中：マスをクリック→<span class="kbd">決定</span>（STEP2完了時は<span class="kbd">完了</span>で次へ）／<span class="kbd">1つ戻る</span>で直前の確定を取り消し<br/>
+        ・開始前：相手駒は表示されず、先攻も <b>？</b> 表示<br/>
+        ・開始後：先攻・相手配置が確定し、オートで進行（手番はログに出ます）<br/>
+        <div class="legend">
+          <span class="tag">司令</span>
+          <span class="tag">秘（秘密兵器）</span>
+          <span class="tag">駆（駆逐艦）</span>
+          <span class="tag">巡（巡洋艦）</span>
+          <span class="tag">偵（偵察艦）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * =========================================================
+ * Architect Ocean 7×7 - v0.2.1準拠（Aモード：オート／介入なし）
+ * 改修点（要旨）：
+ *  - 相手配置／先攻後攻は「開始」押下時に確定 → 開始前は秘匿
+ *  - 自軍配置を段階化：STEP1（司令3択）→STEP2（下2行に固定順で配置）→STEP3（前線任意）
+ *  - 駒表示の漢字化：司令/秘/駆/巡/偵（内部キーはK/Q/S/C/Tのまま）
+ *  - ターン定義：交互固定キュー（先攻→後攻→…）を全消化＝ターン
+ *  - 既存AI方針維持：①司令を取れる ②何か取れる ③相手司令へ近づく
+ *
+ * ★今回の修正（不具合対応）：
+ *  - STEP2完了時に「完了」が押せず開始できない問題を修正
+ *    ・confirmSelection() の「セル未選択ならreturn」を撤廃し、STEP2完了時はセル不要でSTEP3へ遷移
+ *    ・「前線配置をスキップ」ボタンをSTEP2完了時に disabled解除
+ *  - ついでに Undo を改善（STEP3後でもSTEP2配置を戻せる）
+ * =========================================================
+ */
+
+/** ===== Config ===== */
 const BOARD_SIZE = 7;
 
 const SIDE = { YOU:"YOU", ENEMY:"ENEMY" };
 
-// 内部キーは維持（K/Q/S/C/T）
 const TYPE = {
   KING: "K",   // 司令
-  SECRET: "Q", // 秘密兵器（今回は使わないが名称は準備）
+  SECRET: "Q", // 秘密兵器
   S: "S",      // 駆逐艦
   C: "C",      // 巡洋艦
   T: "T",      // 偵察艦
 };
 
-// 盤面表示（漢字1文字）
 const DISP_CHAR = {
   K: "司令",
   Q: "秘",
@@ -265,7 +365,6 @@ const DISP_CHAR = {
   T: "偵",
 };
 
-// ログ/説明の役割名
 const ROLE_NAME = {
   K: "司令",
   Q: "秘密兵器",
@@ -277,115 +376,77 @@ const ROLE_NAME = {
 const MAX_TURNS = 120;
 const STAGNATION_LIMIT = 18;
 
-// テンポ一括調整
+// アニメ速度（テンポ調整用）
 const SPEED = {
-  previewMs: 320,
-  afterMs: 140,
-  betweenActionMs: 120
+  previewMs: 140,
+  afterMs: 120,
 };
-
-/** ===== State ===== */
-let board = emptyBoard();
-let mode = "SETUP";           // SETUP / RUNNING / PAUSED / ENDED
-let autoRunning = false;
-let turn = 0;
-
-// 先攻（開始時に決定。開始前は秘匿）
-let firstSide = null;         // SIDE.YOU or SIDE.ENEMY or null
-
-// 相手配置（開始で確定。開始前は空に見せる）
-let enemyPlaced = false;
-
-// setup step
-let setupStep = 1;            // 1 or 2
-let selectedCell = null;      // {r,c} for pending selection
-
-// STEP1: 司令3択（下端中心/左/右）
-const YOU_K_CHOICES = [
-  {r:6, c:3},
-  {r:6, c:2},
-  {r:6, c:4},
-];
-
-// STEP2: 残り駒の固定順（例）
-const STEP2_ORDER = [TYPE.S, TYPE.S, TYPE.C, TYPE.C, TYPE.T, TYPE.T];
-let step2Index = 0;
-let placedStack = [];         // {r,c,type,side} の履歴（Undo用）
-
-// ループ対策
-const pieceHistory = new Map(); // pieceId -> last positions
-let stagnationCounter = 0;
-let lastMaterialScore = 0;
-let lastKingDistanceScore = 0;
-
-// highlight
-let hiFrom = null;
-let hiTo = null;
 
 /** ===== DOM ===== */
 const elBoard = document.getElementById("board");
 const elLog = document.getElementById("log");
-const elStatusText = document.getElementById("statusText");
-const elTurnNum = document.getElementById("turnNum");
-const elPhaseText = document.getElementById("phaseText");
+const elModeText = document.getElementById("modeText");
+const elPhaseIndicator = document.getElementById("phaseIndicator");
 const elInitiativeText = document.getElementById("initiativeText");
-const elSetupStepText = document.getElementById("setupStepText");
+const elTurnText = document.getElementById("turnText");
 const elCurrentPieceText = document.getElementById("currentPieceText");
+const elStatus = document.getElementById("status");
+const elFrontlineCountDisplay = document.getElementById("frontlineCountDisplay");
+const elFrontlineCount = document.getElementById("frontlineCount");
 
-const btnReset = document.getElementById("btnReset");
 const btnConfirm = document.getElementById("btnConfirm");
 const btnUndo = document.getElementById("btnUndo");
 const btnStart = document.getElementById("btnStart");
-const btnAuto = document.getElementById("btnAuto");
 const btnPause = document.getElementById("btnPause");
+const btnReset = document.getElementById("btnReset");
+const btnSkipFrontline = document.getElementById("btnSkipFrontline");
 
-/** ===== Utilities ===== */
-function emptyBoard(){
-  return Array.from({length:BOARD_SIZE}, () => Array(BOARD_SIZE).fill(null));
-}
-function inBounds(r,c){ return r>=0 && r<BOARD_SIZE && c>=0 && c<BOARD_SIZE; }
-function sleep(ms){ return new Promise(res => setTimeout(res, ms)); }
-async function sleepWithPause(ms){
-  let remain = ms;
-  const step = 50;
-  while(remain > 0){
-    if (mode === "PAUSED"){ await waitWhilePaused(); continue; }
-    if (mode !== "RUNNING") return;
-    const chunk = Math.min(step, remain);
-    await sleep(chunk);
-    remain -= chunk;
-  }
-}
-async function waitWhilePaused(){
-  while(mode === "PAUSED"){ await sleep(120); }
-}
-function nowStr(){
+/** ===== Helpers ===== */
+const sleep = (ms)=> new Promise(res=> setTimeout(res, ms));
+function nowTime(){
   const d = new Date();
-  return d.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  const ss = String(d.getSeconds()).padStart(2,"0");
+  return `${hh}:${mm}:${ss}`;
 }
-function logLine(msg){
-  elLog.textContent += `[${nowStr()}] ${msg}\n`;
+function logLine(text, cls=""){
+  const div = document.createElement("div");
+  div.className = "line " + (cls||"");
+  div.innerHTML = `<b>[${nowTime()}]</b> ${text}`;
+  elLog.appendChild(div);
   elLog.scrollTop = elLog.scrollHeight;
 }
-function setStatus(msg){ elStatusText.textContent = msg; }
-function setPhase(msg){ elPhaseText.textContent = msg; }
-function setTurn(n){ elTurnNum.textContent = String(n); }
+function setStatus(text, kind=""){
+  elStatus.textContent = text;
+  elStatus.classList.remove("good","bad","warn");
+  if (kind==="success") elStatus.classList.add("good");
+  if (kind==="error") elStatus.classList.add("bad");
+  if (kind==="warn") elStatus.classList.add("warn");
+}
+function setMode(label){
+  elModeText.textContent = label;
+}
+function setTurn(n){
+  elTurnText.textContent = String(n);
+}
 
 /** ===== Board zoning ===== */
 function zoneOfRow(r){
   if (r<=1) return "enemy";
+  if (r===4) return "frontline";  // 前線
   if (r>=5) return "you";
   return "neutral";
 }
 function isYouArea(r,c){
-  // 自軍配置範囲：下2行（5,6）
-  return (r>=5 && r<=6);
+  return (r>=5 && r<=6);  // 下2行
 }
 function isEnemyArea(r,c){
-  // 相手配置範囲：上2行（0,1）
-  return (r>=0 && r<=1);
+  return (r>=0 && r<=1);  // 上2行
 }
-
+function isFrontline(r,c){
+  return (r===4);  // 前線＝自軍エリア直上1列
+}
 
 /** ===== Piece creation ===== */
 function makePiece(side, type){
@@ -408,7 +469,7 @@ function render(){
 
       const p = board[r][c];
 
-      // 相手配置秘匿：開始前（enemyPlaced=false）は相手駒を表示しない
+      // 相手配置秘匿
       if (p && p.side===SIDE.ENEMY && !enemyPlaced){
         cell.textContent = "";
       } else if (p){
@@ -418,150 +479,294 @@ function render(){
         cell.textContent = "";
       }
 
-      if (hiFrom && hiFrom.r===r && hiFrom.c===c) cell.classList.add("hi-from");
-      if (hiTo && hiTo.r===r && hiTo.c===c) cell.classList.add("hi-to","blink-to");
-
-      // setup pending selection highlight（hiToを流用してもよいが、分離して扱う）
-      if (mode==="SETUP" && selectedCell && selectedCell.r===r && selectedCell.c===c){
-        cell.classList.add("hi-to","blink-to");
+      // selectable rules during SETUP
+      if (mode==="SETUP"){
+        const selectable = isSelectableCell(r,c);
+        if (selectable) cell.classList.add("selectable");
       }
 
-      cell.addEventListener("click", onCellClick);
+      // selected mark
+      if (selectedCell && selectedCell.r===r && selectedCell.c===c){
+        cell.classList.add("selected");
+      }
+
+      cell.addEventListener("click", ()=> onCellClick(r,c));
       elBoard.appendChild(cell);
     }
   }
 }
-function clearHighlights(){
-  hiFrom = null;
-  hiTo = null;
-  render();
-}
-function setHighlights(from,to){
-  hiFrom = from;
-  hiTo = to;
-  render();
-}
 
-/** ===== Setup UI updates ===== */
-function updateHUDForSetup(){
-  setPhase("配置");
-  if (setupStep === 1){
-    elSetupStepText.textContent = "STEP1（司令位置）";
-    elCurrentPieceText.textContent = `${dispChar(TYPE.KING)}（${roleName(TYPE.KING)}）`;
-    setStatus("配置：STEP1 司令位置（中心/左/右の3択）をクリックで選び、決定してください");
-    btnUndo.disabled = true;
-    btnStart.disabled = true;
-  } else {
-    const t = STEP2_ORDER[step2Index] || null;
-    elSetupStepText.textContent = `STEP2（残り配置 ${step2Index+1}/${STEP2_ORDER.length}）`;
-    elCurrentPieceText.textContent = t ? `${dispChar(t)}（${roleName(t)}）` : "完了";
-    setStatus(t
-      ? `配置：STEP2 「${dispChar(t)}（${roleName(t)}）」を自軍エリアに置き、決定してください`
-      : "配置完了：『開始』が押せます（先攻/相手配置は開始まで秘匿）"
-    );
-    btnUndo.disabled = (placedStack.length===0);
-    btnStart.disabled = (step2Index < STEP2_ORDER.length);
+/** ===== State ===== */
+let board = emptyBoard();
+let mode = "SETUP";           // SETUP / RUNNING / PAUSED / ENDED
+let autoRunning = false;
+let turn = 0;
+
+let firstSide = null;         // 先攻（開始時に決定）
+let enemyPlaced = false;      // 相手配置確定フラグ
+
+// Setup steps: 1=司令, 2=自軍エリア, 3=前線
+let setupStep = 1;
+let selectedCell = null;
+let placedStack = [];         // Undo用履歴
+
+// STEP1: 司令3択
+const YOU_K_CHOICES = [
+  {r:6, c:3},  // 中心
+  {r:6, c:2},  // 中心左
+  {r:6, c:4},  // 中心右
+];
+
+// STEP2: 配置順（固定）
+const STEP2_ORDER = [TYPE.S, TYPE.S, TYPE.C, TYPE.C, TYPE.T, TYPE.T];
+let step2Index = 0;
+
+// STEP3: 前線移動（最大2隻）
+let frontlineCount = 0;
+
+// Running
+let lastBoards = [];          // 盤面反復検出
+let stagnation = 0;
+
+/** ===== Setup helpers ===== */
+function emptyBoard(){
+  const b = [];
+  for (let r=0;r<BOARD_SIZE;r++){
+    b.push(Array(BOARD_SIZE).fill(null));
   }
-
-  // 決定ボタンは「選択済み」のときだけ押せる
-  btnConfirm.disabled = (selectedCell === null);
-
-  // 先攻は開始前は必ず？
-  elInitiativeText.textContent = (firstSide ? (firstSide===SIDE.YOU ? "あなた" : "相手") : "？");
+  return b;
 }
-
-/** ===== Click handling ===== */
-function onCellClick(e){
-  if (mode !== "SETUP") return;
-
-  const r = Number(e.currentTarget.dataset.r);
-  const c = Number(e.currentTarget.dataset.c);
-
-  // クリックで選択だけ（確定は「決定」）
-  if (setupStep === 1){
-    // 司令3択のみ
-    if (!YOU_K_CHOICES.some(p => p.r===r && p.c===c)) return;
-    selectedCell = {r,c};
-    btnConfirm.disabled = false;
-    render();
-    return;
-  }
-
-  if (setupStep === 2){
-    // 自軍エリアのみ＆空マスのみ
-    if (!isYouArea(r,c)) return;
-    if (board[r][c]) return;
-    if (step2Index >= STEP2_ORDER.length) return;
-
-    selectedCell = {r,c};
-    btnConfirm.disabled = false;
-    render();
-    return;
-  }
-}
-
-/** ===== Buttons ===== */
-btnReset.addEventListener("click", () => resetAll());
-btnConfirm.addEventListener("click", () => confirmSelection());
-btnUndo.addEventListener("click", () => undoOne());
-btnStart.addEventListener("click", () => startGame());
-btnAuto.addEventListener("click", () => runOneTurn());
-btnPause.addEventListener("click", () => togglePause());
 
 function resetAll(){
-  autoRunning = false;
+  board = emptyBoard();
   mode = "SETUP";
+  autoRunning = false;
   turn = 0;
 
-  // 秘匿を初期化
   firstSide = null;
   enemyPlaced = false;
 
-  // setup state
   setupStep = 1;
   selectedCell = null;
-  step2Index = 0;
   placedStack = [];
+  step2Index = 0;
+  frontlineCount = 0;
 
-  // loop/score state
-  stagnationCounter = 0;
-  pieceHistory.clear();
-  lastMaterialScore = 0;
-  lastKingDistanceScore = 0;
+  lastBoards = [];
+  stagnation = 0;
 
-  board = emptyBoard();
-
-  setTurn(turn);
-  setPhase("配置");
-  elLog.textContent = "";
-  logLine("リセットしました。配置を開始してください。");
-  logLine("※開始前は『先攻：？』、相手配置も秘匿（盤面に表示されません）");
-
-  // UI
-  btnAuto.disabled = true;
-  btnPause.disabled = true;
-  btnStart.disabled = true;
+  setTurn(0);
+  setMode("配置");
+  setStatus("配置STEP1：司令位置を選んで決定してください");
   btnConfirm.disabled = true;
   btnUndo.disabled = true;
+  btnStart.disabled = true;
+  btnPause.disabled = true;
+  btnPause.textContent = "一時停止";
+  btnSkipFrontline.style.display = "none";
+  elFrontlineCountDisplay.style.display = "none";
+  elInitiativeText.textContent = "？";
+  elPhaseIndicator.textContent = "配置STEP1";
+  elCurrentPieceText.textContent = "司令";
 
-  updateHUDForSetup();
+  elLog.innerHTML = "";
+  logLine("リセット：配置からやり直し", "warn");
   render();
 }
 
+/** ===== Selectable logic ===== */
+function isSelectableCell(r,c){
+  // STEP1：司令3択のみ
+  if (setupStep===1){
+    return YOU_K_CHOICES.some(pos => pos.r===r && pos.c===c);
+  }
+  // STEP2：自軍エリア（下2行）の空き
+  if (setupStep===2){
+    if (step2Index >= STEP2_ORDER.length) return false;
+    return isYouArea(r,c) && !board[r][c];
+  }
+  // STEP3：前線配置：自軍駒を選択→前線へ移動 or 解除
+  if (setupStep===3){
+    // クリック対象は (1) 自軍駒 (2) 前線の空き
+    if (isFrontline(r,c) && !board[r][c]) return true;
+    const p = board[r][c];
+    if (p && p.side===SIDE.YOU && p.type!==TYPE.KING){
+      // 自軍エリア/前線の駒を選択可
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+function onCellClick(r,c){
+  if (mode!=="SETUP") return;
+
+  if (!isSelectableCell(r,c)){
+    // クリックで選択解除だけは許可（STEP3で混乱しがちなので）
+    if (selectedCell){
+      selectedCell = null;
+      btnConfirm.disabled = true;
+      render();
+    }
+    return;
+  }
+
+  // STEP3特殊：前線移動
+  if (setupStep===3){
+    const p = board[r][c];
+    // 自軍駒を選択
+    if (p && p.side===SIDE.YOU && p.type!==TYPE.KING){
+      selectedCell = {r,c};
+      setStatus(`前線配置：移動する駒を選択中（${dispChar(p.type)}／${roleName(p.type)}）`);
+      render();
+      return;
+    }
+    // 前線の空きへ置く（選択中の駒が必要）
+    if (isFrontline(r,c) && !board[r][c]){
+      if (!selectedCell){
+        setStatus("前線配置：先に移動する自軍駒を選んでください", "warn");
+        return;
+      }
+      const from = selectedCell;
+      const moving = board[from.r][from.c];
+      if (!moving || moving.side!==SIDE.YOU){
+        selectedCell = null;
+        setStatus("前線配置：選択が無効です（自軍駒を選び直してください）", "error");
+        render();
+        return;
+      }
+      if (frontlineCount>=2){
+        setStatus("前線は最大2隻です（これ以上置けません）", "warn");
+        return;
+      }
+      // 移動実行
+      board[r][c] = moving;
+      board[from.r][from.c] = null;
+      placedStack.push({action:"move-to-frontline", from:{...from}, to:{r,c}});
+      frontlineCount++;
+      selectedCell = null;
+      logLine(`前線配置：${roleName(moving.type)}を(${from.r},${from.c})→前線(${r},${c})へ移動`);
+      setStatus(`前線配置：現在${frontlineCount}/2。続けて移動するか、「開始」でゲーム開始できます`);
+      updateHUDForSetup();
+      render();
+      return;
+    }
+    return;
+  }
+
+  // STEP1/2：通常選択
+  selectedCell = {r,c};
+  btnConfirm.disabled = false;
+  render();
+}
+
+/** ===== Setup HUD ===== */
+function updateHUDForSetup(){
+  setMode("配置");
+
+  // 既定（段階で上書き）
+  btnConfirm.textContent = "決定";
+  btnSkipFrontline.disabled = true;
+
+  if (setupStep === 1){
+    elPhaseIndicator.textContent = "配置STEP1（司令位置）";
+    elCurrentPieceText.textContent = dispChar(TYPE.KING);
+    setStatus("配置STEP1：司令位置（中心/左/右の3択）をクリックで選び、決定してください");
+    btnUndo.disabled = true;
+    btnStart.disabled = true;
+    btnSkipFrontline.style.display = "none";
+    elFrontlineCountDisplay.style.display = "none";
+
+    // STEP1は「選択があるときだけ決定」
+    btnConfirm.disabled = (selectedCell === null);
+  } 
+  else if (setupStep === 2){
+    const t = STEP2_ORDER[step2Index] || null;
+    elPhaseIndicator.textContent = `配置STEP2（自軍エリア ${Math.min(step2Index+1, STEP2_ORDER.length)}/${STEP2_ORDER.length}）`;
+    elCurrentPieceText.textContent = t ? dispChar(t) : "完了";
+
+    btnUndo.disabled = (placedStack.length===0);
+    btnStart.disabled = true;
+    elFrontlineCountDisplay.style.display = "none";
+
+    if (t){
+      setStatus(`配置STEP2：「${dispChar(t)}（${roleName(t)}）」を自軍エリア（下2行）に置き、決定してください`);
+      btnSkipFrontline.style.display = "none";
+
+      // STEP2配置中は「選択があるときだけ決定」
+      btnConfirm.textContent = "決定";
+      btnConfirm.disabled = (selectedCell === null);
+    } else {
+      // ★ここが不具合ポイント：STEP2完了時にボタンが押せず、先へ進めない状態になっていた
+      setStatus("配置STEP2完了：『完了』で前線配置へ進む／『前線配置をスキップ』で開始準備へ進めます", "success");
+
+      // STEP2完了時はセル選択不要で押せる
+      btnConfirm.textContent = "完了";
+      btnConfirm.disabled = false;
+
+      // スキップボタンを有効化（disabledのままだと詰む）
+      btnSkipFrontline.style.display = "inline-block";
+      btnSkipFrontline.disabled = false;
+    }
+  }
+  else if (setupStep === 3){
+    elPhaseIndicator.textContent = "配置STEP3（前線配置）";
+    elCurrentPieceText.textContent = "自由配置";
+    elFrontlineCountDisplay.style.display = "inline-flex";
+    elFrontlineCount.textContent = frontlineCount;
+
+    setStatus(`配置STEP3：前線（4行目）に駒を移動できます（最大2隻、現在${frontlineCount}/2）。完了したら「開始」を押してください`);
+
+    btnUndo.disabled = (placedStack.length===0);
+    btnStart.disabled = false;
+    btnSkipFrontline.style.display = "none";
+
+    // STEP3では決定ボタンは使わない（前線はクリック移動で確定）
+    btnConfirm.textContent = "決定";
+    btnConfirm.disabled = true;
+    selectedCell = null; // 誤って残っている場合の保険
+  }
+
+  // 開始前は必ず「？」表示（開始後に初めて確定表示）
+  elInitiativeText.textContent = firstSide ? (firstSide===SIDE.YOU ? "あなた" : "相手") : "？";
+}
+
+/** ===== Buttons ===== */
+btnConfirm.addEventListener("click", ()=> confirmSelection());
+btnUndo.addEventListener("click", ()=> undoOne());
+btnStart.addEventListener("click", ()=> startGame());
+btnPause.addEventListener("click", ()=> togglePause());
+btnReset.addEventListener("click", ()=> resetAll());
+btnSkipFrontline.addEventListener("click", ()=> skipToStart());
+
 function confirmSelection(){
   if (mode !== "SETUP") return;
+
+  // STEP2が完了している場合：「完了」ボタンで前線配置（STEP3）へ進む
+  // ※このときセル選択は不要（selectedCell===nullでもOK）
+  if (setupStep === 2 && step2Index >= STEP2_ORDER.length){
+    selectedCell = null;
+    setupStep = 3;
+    logLine("配置確定STEP2：自軍エリアの配置が完了。前線配置（任意）へ移行しました。");
+    updateHUDForSetup();
+    render();
+    return;
+  }
+
   if (!selectedCell) return;
 
   if (setupStep === 1){
-    // STEP1：司令を確定配置
     const {r,c} = selectedCell;
-    if (board[r][c]) return;
+    if (board[r][c]){
+      setStatus("既に駒があります", "error");
+      return;
+    }
 
     board[r][c] = makePiece(SIDE.YOU, TYPE.KING);
-    placedStack.push({r,c,type:TYPE.KING,side:SIDE.YOU});
-    logLine(`配置確定：あなた 司令（司令）を (${r},${c})`);
+    placedStack.push({action:"place", step:1, r,c, type:TYPE.KING, side:SIDE.YOU});
+    logLine(`配置確定STEP1：司令を(${r},${c})に配置`);
 
-    // STEP2へ
     setupStep = 2;
     selectedCell = null;
     btnConfirm.disabled = true;
@@ -575,18 +780,23 @@ function confirmSelection(){
     const t = STEP2_ORDER[step2Index];
     const {r,c} = selectedCell;
 
-    if (!isYouArea(r,c)) return;
-    if (board[r][c]) return;
+    if (!isYouArea(r,c)){
+      setStatus("自軍エリア外です", "error");
+      return;
+    }
+    if (board[r][c]){
+      setStatus("既に駒があります", "error");
+      return;
+    }
 
     board[r][c] = makePiece(SIDE.YOU, t);
-    placedStack.push({r,c,type:t,side:SIDE.YOU});
-    logLine(`配置確定：あなた ${roleName(t)}（${dispChar(t)}）を (${r},${c})`);
+    placedStack.push({action:"place", step:2, r,c, type:t, side:SIDE.YOU});
+    logLine(`配置確定STEP2(${step2Index+1}/${STEP2_ORDER.length})：${roleName(t)}を(${r},${c})に配置`);
 
     step2Index += 1;
     selectedCell = null;
     btnConfirm.disabled = true;
 
-    // 配置完了チェック（開始ボタン有効化）
     updateHUDForSetup();
     render();
     return;
@@ -597,7 +807,7 @@ function undoOne(){
   if (mode !== "SETUP") return;
   if (placedStack.length === 0) return;
 
-  // 未確定選択がある場合は、まず選択を解除（戻すより直感的）
+  // 未確定選択を解除（決定前のクリックを取り消す）
   if (selectedCell){
     selectedCell = null;
     btnConfirm.disabled = true;
@@ -607,104 +817,340 @@ function undoOne(){
   }
 
   const last = placedStack.pop();
-  board[last.r][last.c] = null;
 
-  // 司令を戻したらSTEP1へ復帰
-  if (last.type === TYPE.KING){
-    setupStep = 1;
-    step2Index = 0;
-    // STEP2で置いた駒が残っていたら全部消す（司令が消える＝再選択のため）
-    // 安全のため全消し→stackも司令以外はすでにpopで減っているが、盤面上の残りも消す
-    for (let r=0;r<BOARD_SIZE;r++){
-      for (let c=0;c<BOARD_SIZE;c++){
-        const p = board[r][c];
-        if (p && p.side===SIDE.YOU) board[r][c] = null;
+  if (last.action === "place"){
+    board[last.r][last.c] = null;
+
+    if (last.type === TYPE.KING){
+      setupStep = 1;
+      step2Index = 0;
+      frontlineCount = 0;
+
+      // 司令以降の全配置を消去
+      for (let r=0;r<BOARD_SIZE;r++){
+        for (let c=0;c<BOARD_SIZE;c++){
+          const p = board[r][c];
+          if (p && p.side===SIDE.YOU) board[r][c] = null;
+        }
       }
+      placedStack = [];
+      logLine("1つ戻る：司令配置を取り消し（STEP1へ）");
+    } else {
+      // ★前線STEP3に進んだ後でも、STEP2の配置を戻せるようにする
+      const placedStep = last.step || null;
+      if ((placedStep === 2) && step2Index > 0) step2Index -= 1;
+      if (placedStep === 2) setupStep = 2;
+
+      logLine(`1つ戻る：${roleName(last.type)}の配置を取り消し`);
     }
-    placedStack = []; // 司令含めやり直し
-    logLine("1つ戻る：司令配置を取り消しました（STEP1に戻ります）");
-  } else {
-    // STEP2ならインデックスを1つ戻す
-    if (setupStep === 2 && step2Index > 0) step2Index -= 1;
-    logLine(`1つ戻る：${roleName(last.type)}（${dispChar(last.type)}）の配置を取り消しました`);
+  }
+  else if (last.action === "move-to-frontline"){
+    // 前線から自軍エリアへ戻す
+    const piece = board[last.to.r][last.to.c];
+    board[last.from.r][last.from.c] = piece;
+    board[last.to.r][last.to.c] = null;
+    logLine(`1つ戻る：${roleName(piece.type)}を前線から自軍エリアへ戻す`);
+  }
+
+  // frontlineCount は常に盤面から再計算して整合性を保つ
+  frontlineCount = 0;
+  for (let c=0;c<BOARD_SIZE;c++){
+    const p = board[4][c];
+    if (p && p.side===SIDE.YOU) frontlineCount++;
   }
 
   updateHUDForSetup();
   render();
 }
 
-/** ===== Start Game ===== */
-function startGame(){
+function skipToStart(){
   if (mode !== "SETUP") return;
+  if (setupStep !== 2 || step2Index < STEP2_ORDER.length) return;
 
-  // 配置完了条件：司令＋STEP2全て
-  if (setupStep !== 2 || step2Index < STEP2_ORDER.length){
-    setStatus("開始できません：配置が未完了です（STEPを完了してください）");
-    return;
-  }
-
-  // ★開始押下で初めて「先攻」と「相手配置」を確定（秘匿解除）
-  firstSide = (Math.random() < 0.5) ? SIDE.YOU : SIDE.ENEMY;
-  enemyPlaced = true;
-  placeEnemyRandom(); // ここで相手駒が確定＆盤面に出現
-
-  elInitiativeText.textContent = (firstSide===SIDE.YOU) ? "あなた" : "相手";
-  btnStart.disabled = true;
-  btnConfirm.disabled = true;
-  btnUndo.disabled = true;
-
-  mode = "RUNNING";
-  btnAuto.disabled = false;
-  btnPause.disabled = false;
-
-  setPhase("待機");
-  setStatus("開始しました。相手配置と先攻が確定しました。『オート進行（1ターン）』で進められます。");
-
-  logLine("開始：相手の初期配置をこのタイミングで確定しました（秘匿解除）");
-  logLine(`開始：先攻後攻をこのタイミングで決定しました（先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}）`);
-
-  // 開始直後の見た目はシンプルでOK（“出現”演出はログで表現）
+  // STEP3（前線配置）へ移行。前線は任意なので 0 のまま開始可能。
+  selectedCell = null;
+  setupStep = 3;
+  frontlineCount = 0;
+  logLine("前線配置をスキップ：前線0隻で開始できます。");
+  updateHUDForSetup();
   render();
 }
 
-/** ===== Enemy placement (random at start) ===== */
-function placeEnemyRandom(){
-  // 相手駒構成：司令(K) + 駆(S)×2 + 巡(C)×2 + 偵(T)×2
-  const types = [TYPE.KING, TYPE.S, TYPE.S, TYPE.C, TYPE.C, TYPE.T, TYPE.T];
+/** ===== Start Game (randomize initiative + enemy placement) ===== */
+function startGame(){
+  if (mode !== "SETUP") return;
+  if (setupStep !== 3){
+    setStatus("まだ配置が完了していません（STEP3まで進んでください）", "warn");
+    return;
+  }
 
-  // 司令位置：上端中心/左/右（あなたと対称っぽく）
-  const kChoices = [{r:0,c:3},{r:0,c:2},{r:0,c:4}];
-  const kPos = kChoices[Math.floor(Math.random()*kChoices.length)];
+  // 先攻決定（開始で初めて確定）
+  firstSide = (Math.random() < 0.5) ? SIDE.YOU : SIDE.ENEMY;
+
+  // 相手配置も開始で初めて確定
+  placeEnemyRandom();
+
+  enemyPlaced = true;
+
+  // 表示更新
+  updateHUDForSetup();
+  render();
+
+  // ログ
+  logLine("開始：先攻後攻と相手配置がこのタイミングで確定しました", "warn");
+  logLine(`先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}`, "warn");
+
+  mode = "RUNNING";
+  autoRunning = true;
+  btnPause.disabled = false;
+  btnStart.disabled = true;
+  btnConfirm.disabled = true;
+  btnUndo.disabled = true;
+  btnSkipFrontline.style.display = "none";
+
+  setMode("進行");
+  setStatus("ゲーム進行中：オートで手番を処理します");
+
+  turn = 0;
+  setTurn(turn);
+
+  lastBoards = [];
+  stagnation = 0;
+
+  loop();
+}
+
+function placeEnemyRandom(){
+  // 相手司令：上側（r=0）中心/左/右
+  const enemyKChoices = [
+    {r:0, c:3},
+    {r:0, c:2},
+    {r:0, c:4},
+  ];
+  const kPos = enemyKChoices[Math.floor(Math.random()*enemyKChoices.length)];
   board[kPos.r][kPos.c] = makePiece(SIDE.ENEMY, TYPE.KING);
 
-  // 残りは上2行にランダム配置
-  const empties = [];
+  // 相手駆/巡/偵：上2行（r=0..1）にランダム配置（司令マス除外）
+  const order = [TYPE.S,TYPE.S,TYPE.C,TYPE.C,TYPE.T,TYPE.T];
+  const candidates = [];
   for (let r=0;r<=1;r++){
     for (let c=0;c<BOARD_SIZE;c++){
-      if (!board[r][c]) empties.push({r,c});
+      if (r===kPos.r && c===kPos.c) continue;
+      candidates.push({r,c});
+    }
+  }
+  // shuffle
+  for (let i=candidates.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  for (let i=0;i<order.length;i++){
+    const pos = candidates[i];
+    board[pos.r][pos.c] = makePiece(SIDE.ENEMY, order[i]);
+  }
+}
+
+/** ===== Game Loop ===== */
+async function loop(){
+  while(autoRunning && mode==="RUNNING"){
+    turn += 1;
+    setTurn(turn);
+
+    logLine(`ターン${turn}開始（先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}）`, "warn");
+
+    // ターン開始：行動キュー作成
+    const queue = buildActionQueue();
+
+    if (queue.length===0){
+      logLine("動ける駒がありません（引き分け扱い）", "warn");
+      endGame("引き分け：動ける駒がない");
+      break;
+    }
+
+    // キュー消化（手番＝1駒の行動）
+    for (let i=0;i<queue.length;i++){
+      const item = queue[i];
+      const sideName = (item.side===SIDE.YOU) ? "あなた" : "相手";
+      logLine(`いま動く：${sideName}〔${roleName(item.type)}〕`, "");
+
+      // 盤面から該当駒を取得（倒されている場合はスキップ）
+      const pos = findPieceById(item.id);
+      if (!pos){
+        logLine("（この駒は既に盤上に存在しないためスキップ）", "warn");
+        continue;
+      }
+
+      // 1駒のオート行動
+      await doAutoAction(item.side, pos.r, pos.c);
+
+      // 手番終了ごとに勝敗チェック（重要）
+      const win = checkWin();
+      if (win){
+        endGame(win, win.includes("勝利") ? "good" : "warn");
+        autoRunning = false;
+        break;
+      }
+
+      if (mode!=="RUNNING") break;
+    }
+
+    if (mode!=="RUNNING") break;
+
+    // ターン終わりチェック（必須）
+    const win2 = checkWin();
+    if (win2){
+      endGame(win2, win2.includes("勝利") ? "good" : "warn");
+      break;
+    }
+
+    // 反復・停滞チェック
+    const key = boardKey();
+    if (lastBoards.includes(key)){
+      stagnation += 1;
+      logLine(`盤面反復を検出（${stagnation}/${STAGNATION_LIMIT}）`, "warn");
+      if (stagnation>=STAGNATION_LIMIT){
+        endGame("引き分け：同一盤面反復（停滞）", "warn");
+        break;
+      }
+    } else {
+      stagnation = 0;
+      lastBoards.push(key);
+      if (lastBoards.length>10) lastBoards.shift();
+    }
+
+    if (turn>=MAX_TURNS){
+      endGame(`引き分け：最大ターン(${MAX_TURNS})到達`, "warn");
+      break;
+    }
+
+    logLine(`ターン${turn}終了`, "warn");
+    await sleep(90);
+  }
+}
+
+/** ===== Action Queue (interleaved) =====
+ * 仕様：
+ *  - ターン開始時に「動ける駒のみ」抽出
+ *  - 各陣営の並び順は安定化（y昇順→x昇順→id）
+ *  - 先攻→後攻→先攻→後攻…の交互固定で消化
+ *  - 駒数が偏ったら残り側だけ消化してよい
+ */
+function buildActionQueue(){
+  // 動ける駒のみ：司令は動けない（キュー除外）
+  const youPieces = listPiecesStable(SIDE.YOU).filter(p=> p.type!==TYPE.KING);
+  const enemyPieces = listPiecesStable(SIDE.ENEMY).filter(p=> p.type!==TYPE.KING);
+
+  const firstList = (firstSide===SIDE.YOU) ? youPieces : enemyPieces;
+  const secondList = (firstSide===SIDE.YOU) ? enemyPieces : youPieces;
+
+  const q = [];
+  const max = Math.max(firstList.length, secondList.length);
+  for (let i=0;i<max;i++){
+    if (i<firstList.length) q.push(firstList[i]);
+    if (i<secondList.length) q.push(secondList[i]);
+  }
+  return q;
+}
+
+/** ===== Stable sorting =====
+ * ソート仕様：
+ *  - y(行)昇順 → x(列)昇順 → id昇順（同値安定）
+ */
+function listPiecesStable(side){
+  const arr = [];
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      const p = board[r][c];
+      if (p && p.side===side){
+        arr.push({id:p.id, type:p.type, r, c});
+      }
+    }
+  }
+  arr.sort((a,b)=>{
+    if (a.r!==b.r) return a.r-b.r;
+    if (a.c!==b.c) return a.c-b.c;
+    return a.id.localeCompare(b.id);
+  });
+  return arr.map(x=>({id:x.id, type:x.type, side, r:x.r, c:x.c}));
+}
+
+function findPieceById(id){
+  for (let r=0;r<BOARD_SIZE;r++){
+    for (let c=0;c<BOARD_SIZE;c++){
+      const p = board[r][c];
+      if (p && p.id===id) return {r,c};
+    }
+  }
+  return null;
+}
+
+/** ===== Auto Action =====
+ * 方針（現行維持）：
+ *  ①相手司令を取れるなら取る
+ *  ②何か取れるなら取る
+ *  ③相手司令に近づく（マンハッタン距離最小）
+ */
+async function doAutoAction(side, r, c){
+  const p = board[r][c];
+  if (!p) return;
+
+  const moves = legalMoves(p, r, c);
+  if (moves.length===0){
+    logLine("動けません", "warn");
+    return;
+  }
+
+  const enemySide = (side===SIDE.YOU) ? SIDE.ENEMY : SIDE.YOU;
+
+  // ①相手司令を取れる
+  const takeKing = moves.find(m=>{
+    const tp = board[m.r][m.c];
+    return tp && tp.side===enemySide && tp.type===TYPE.KING;
+  });
+  if (takeKing){
+    await animateMove(r,c,takeKing.r,takeKing.c, true);
+    return;
+  }
+
+  // ②何か取れる
+  const takes = moves.filter(m=>{
+    const tp = board[m.r][m.c];
+    return tp && tp.side===enemySide;
+  });
+  if (takes.length>0){
+    const m = takes[Math.floor(Math.random()*takes.length)];
+    await animateMove(r,c,m.r,m.c, true);
+    return;
+  }
+
+  // ③相手司令へ近づく
+  const kingPos = findKing(enemySide);
+  if (kingPos){
+    let best = null;
+    let bestDist = 999;
+    for (const m of moves){
+      if (board[m.r][m.c]) continue; // 空きへ
+      const d = manhattan(m.r,m.c, kingPos.r, kingPos.c);
+      if (d < bestDist){
+        bestDist = d;
+        best = m;
+      }
+    }
+    if (best){
+      await animateMove(r,c,best.r,best.c, false);
+      return;
     }
   }
 
-  shuffleInPlace(empties);
-
-  let idx = 0;
-  for (const t of types){
-    if (t === TYPE.KING) continue;
-    const pos = empties[idx++];
-    if (!pos) break;
-    board[pos.r][pos.c] = makePiece(SIDE.ENEMY, t);
-  }
+  // fallback：ランダム移動（空き）
+  const empties = moves.filter(m=> !board[m.r][m.c]);
+  const m = (empties.length>0) ? empties[Math.floor(Math.random()*empties.length)] : moves[0];
+  await animateMove(r,c,m.r,m.c, !!board[m.r][m.c]);
 }
 
-function shuffleInPlace(arr){
-  for (let i=arr.length-1;i>0;i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
+function manhattan(r1,c1,r2,c2){ return Math.abs(r1-r2)+Math.abs(c1-c2); }
 
-/** ===== Game Logic ===== */
-function findKingPos(side){
+function findKing(side){
   for (let r=0;r<BOARD_SIZE;r++){
     for (let c=0;c<BOARD_SIZE;c++){
       const p = board[r][c];
@@ -713,366 +1159,131 @@ function findKingPos(side){
   }
   return null;
 }
-function allPieces(side){
+
+/** ===== Move rules =====
+ * ここは現行コード踏襲（簡易）
+ *  - 駆逐艦/巡洋艦/偵察艦/秘密兵器：1マス上下左右（司令は動けない）
+ *  - 味方駒には進入不可
+ *  - 敵駒は取れる
+ */
+function legalMoves(p, r, c){
+  const dirs = [
+    {dr:-1, dc:0},
+    {dr:+1, dc:0},
+    {dr:0, dc:-1},
+    {dr:0, dc:+1},
+  ];
   const out = [];
-  for (let r=0;r<BOARD_SIZE;r++){
-    for (let c=0;c<BOARD_SIZE;c++){
-      const p = board[r][c];
-      if (p && p.side===side) out.push({r,c,p});
-    }
+  for (const d of dirs){
+    const nr = r + d.dr;
+    const nc = c + d.dc;
+    if (nr<0 || nr>=BOARD_SIZE || nc<0 || nc>=BOARD_SIZE) continue;
+    const tp = board[nr][nc];
+    if (tp && tp.side===p.side) continue;
+    out.push({r:nr,c:nc});
   }
   return out;
 }
-function findPiecePosById(pieceId){
+
+/** ===== Animation ===== */
+async function animateMove(fr,fc,tr,tc,isCapture){
+  highlight(fr,fc,true);
+  highlight(tr,tc,true);
+  await sleep(SPEED.previewMs);
+
+  const mover = board[fr][fc];
+  const target = board[tr][tc];
+
+  if (target && isCapture){
+    logLine(`攻撃：${roleName(mover.type)}が${roleName(target.type)}を撃破`, "good");
+  }
+
+  board[tr][tc] = mover;
+  board[fr][fc] = null;
+
+  // 司令を取ったら即終了
+  if (target && target.type===TYPE.KING){
+    render();
+    await sleep(SPEED.afterMs);
+    return;
+  }
+
+  render();
+  await sleep(SPEED.afterMs);
+
+  highlight(fr,fc,false);
+  highlight(tr,tc,false);
+  render();
+}
+
+function highlight(r,c,on){
+  const idx = r*BOARD_SIZE + c;
+  const cell = elBoard.children[idx];
+  if (!cell) return;
+  if (on) cell.classList.add("hl");
+  else cell.classList.remove("hl");
+}
+
+/** ===== Win / Draw ===== */
+function checkWin(){
+  const youK = findKing(SIDE.YOU);
+  const enK = findKing(SIDE.ENEMY);
+  if (!enK) return "勝利：相手の司令を奪取";
+  if (!youK) return "敗北：自軍の司令が奪取された";
+  return null;
+}
+
+function boardKey(){
+  // 盤面を簡易ハッシュ化（side+type+pos）
+  const parts = [];
   for (let r=0;r<BOARD_SIZE;r++){
     for (let c=0;c<BOARD_SIZE;c++){
       const p = board[r][c];
-      if (p && p.id === pieceId) return {r,c,p};
+      if (!p) continue;
+      parts.push(`${p.side[0]}${p.type}${r}${c}`);
     }
   }
-  return null;
+  parts.sort();
+  return parts.join("|");
 }
 
-function moveDeltas(piece){
-  const f = (piece.side===SIDE.YOU) ? -1 : +1;
-  switch(piece.type){
-    case TYPE.KING:
-      return []; // 司令は動かない
-    case TYPE.S: // 駆逐艦：前後1
-      return [{dr:f,dc:0},{dr:-f,dc:0}];
-    case TYPE.T: // 偵察艦：斜め4
-      return [{dr:-1,dc:-1},{dr:-1,dc:+1},{dr:+1,dc:-1},{dr:+1,dc:+1}];
-    case TYPE.C: // 巡洋艦：前＋斜め前
-      return [{dr:f,dc:0},{dr:f,dc:-1},{dr:f,dc:+1}];
-    default:
-      return [];
-  }
-}
-
-function legalMoves(fromR, fromC){
-  const piece = board[fromR][fromC];
-  if (!piece) return [];
-  const deltas = moveDeltas(piece);
-  const moves = [];
-  for (const d of deltas){
-    const nr = fromR + d.dr;
-    const nc = fromC + d.dc;
-    if (!inBounds(nr,nc)) continue;
-    const target = board[nr][nc];
-    if (target && target.side === piece.side) continue;
-    moves.push({
-      from:{r:fromR,c:fromC},
-      to:{r:nr,c:nc},
-      capture: !!target,
-      captured: target || null,
-    });
-  }
-  return moves;
-}
-
-/** ===== Loop prevention (ping-pong) ===== */
-function pushHistory(pieceId, pos){
-  if (!pieceHistory.has(pieceId)) pieceHistory.set(pieceId, []);
-  const arr = pieceHistory.get(pieceId);
-  arr.push({r:pos.r,c:pos.c});
-  while(arr.length>6) arr.shift();
-}
-function detectPingPong(pieceId){
-  const arr = pieceHistory.get(pieceId) || [];
-  if (arr.length < 5) return { looped:false, avoid:null };
-  const p0 = arr[arr.length-5];
-  const p1 = arr[arr.length-4];
-  const p2 = arr[arr.length-3];
-  const p3 = arr[arr.length-2];
-  const p4 = arr[arr.length-1];
-  const eq = (a,b)=>a.r===b.r && a.c===b.c;
-  if (eq(p0,p2) && eq(p2,p4) && eq(p1,p3) && !eq(p0,p1)){
-    return { looped:true, avoid:{r:p3.r,c:p3.c} };
-  }
-  return { looped:false, avoid:null };
-}
-function manhattan(a,b){
-  return Math.abs(a.r-b.r)+Math.abs(a.c-b.c);
-}
-
-/** ===== Turn evaluation ===== */
-function materialScore(){
-  const you = allPieces(SIDE.YOU).length;
-  const en = allPieces(SIDE.ENEMY).length;
-  return you - en;
-}
-function kingDistanceScore(){
-  const enemyK = findKingPos(SIDE.ENEMY);
-  const youK = findKingPos(SIDE.YOU);
-  if (!enemyK || !youK) return 0;
-
-  const youMovers = allPieces(SIDE.YOU).filter(x => x.p.type !== TYPE.KING);
-  const enMovers  = allPieces(SIDE.ENEMY).filter(x => x.p.type !== TYPE.KING);
-
-  const sumYou = youMovers.reduce((s,x)=>s+manhattan({r:x.r,c:x.c}, enemyK), 0);
-  const sumEn  = enMovers.reduce((s,x)=>s+manhattan({r:x.r,c:x.c}, youK), 0);
-
-  return (sumEn - sumYou);
-}
-
-/** ===== Turn flow (interleaved queue) ===== */
-function movablePiecesSorted(side){
-  const arr = allPieces(side).filter(x => x.p.type !== TYPE.KING);
-
-  // 安定ソート：y昇順→x昇順→id
-  arr.sort((a,b)=>{
-    if (a.r !== b.r) return a.r - b.r;
-    if (a.c !== b.c) return a.c - b.c;
-    return String(a.p.id).localeCompare(String(b.p.id));
-  });
-  return arr;
-}
-
-function buildActionQueue(){
-  const first = firstSide;
-  const second = (firstSide === SIDE.YOU) ? SIDE.ENEMY : SIDE.YOU;
-
-  const listA = movablePiecesSorted(first);
-  const listB = movablePiecesSorted(second);
-
-  const q = [];
-  let i=0, j=0;
-  while(i<listA.length || j<listB.length){
-    if (i<listA.length){
-      q.push({ id:listA[i].p.id, side:listA[i].p.side, type:listA[i].p.type });
-      i++;
-    }
-    if (j<listB.length){
-      q.push({ id:listB[j].p.id, side:listB[j].p.side, type:listB[j].p.type });
-      j++;
-    }
-  }
-  return q;
-}
-
-// 1駒AI：①司令を取れる ②何か取れる ③相手司令に近づく
-function chooseBestMoveForPiece(fromR, fromC){
-  const piece = board[fromR][fromC];
-  if (!piece) return null;
-
-  const enemySide = (piece.side===SIDE.YOU) ? SIDE.ENEMY : SIDE.YOU;
-  const enemyK = findKingPos(enemySide);
-  if (!enemyK) return null;
-
-  let moves = legalMoves(fromR, fromC);
-  if (moves.length === 0) return null;
-
-  const {looped, avoid} = detectPingPong(piece.id);
-  if (looped && avoid){
-    const filtered = moves.filter(m => !(m.to.r===avoid.r && m.to.c===avoid.c));
-    if (filtered.length>0) moves = filtered;
-  }
-
-  const candidates = moves.map(m=>{
-    const capturesK = m.capture && m.captured && m.captured.type===TYPE.KING;
-    const capturesAny = m.capture;
-    const dist = manhattan(m.to, enemyK);
-    return { move:m, capturesK, capturesAny, dist };
-  });
-
-  const useShake = (stagnationCounter >= Math.floor(STAGNATION_LIMIT/2));
-
-  candidates.sort((a,b)=>{
-    if (a.capturesK !== b.capturesK) return (b.capturesK?1:0) - (a.capturesK?1:0);
-    if (a.capturesAny !== b.capturesAny) return (b.capturesAny?1:0) - (a.capturesAny?1:0);
-    return a.dist - b.dist;
-  });
-
-  if (!useShake){
-    const top = candidates[0];
-    const topSet = candidates.filter(x =>
-      x.capturesK===top.capturesK && x.capturesAny===top.capturesAny && x.dist===top.dist
-    );
-    return topSet[Math.floor(Math.random()*topSet.length)].move;
-  } else {
-    const kingCaps = candidates.filter(x=>x.capturesK);
-    if (kingCaps.length>0) return kingCaps[Math.floor(Math.random()*kingCaps.length)].move;
-
-    const topN = candidates.slice(0, Math.min(5, candidates.length));
-    return topN[Math.floor(Math.random()*topN.length)].move;
-  }
-}
-
-function applyMove(m){
-  const piece = board[m.from.r][m.from.c];
-  if (!piece) return {ok:false, captured:null};
-  const captured = board[m.to.r][m.to.c] || null;
-
-  board[m.from.r][m.from.c] = null;
-  board[m.to.r][m.to.c] = piece;
-
-  return {ok:true, captured};
-}
-
-function checkWinnerAtTurnEnd(){
-  const youK = findKingPos(SIDE.YOU);
-  const enK  = findKingPos(SIDE.ENEMY);
-
-  if (!enK) return "あなたの勝ち（相手司令を制覇）";
-  if (!youK) return "相手の勝ち（あなたの司令が制覇された）";
-  if (turn >= MAX_TURNS) return "引き分け（最大ターン）";
-  return null;
-}
-
-async function runOneTurn(){
-  if (mode !== "RUNNING") return;
-  if (autoRunning) return;
-  if (!firstSide) return;
-
-  autoRunning = true;
-  btnAuto.disabled = true;
-
-  try{
-    if (turn >= MAX_TURNS){
-      endGame("引き分け（最大ターン）");
-      return;
-    }
-
-    turn += 1;
-    setTurn(turn);
-
-    // ターン開始ログ（指定フォーマット）
-    logLine(`ターン${turn}開始（先攻：${firstSide===SIDE.YOU ? "あなた" : "相手"}）`);
-    setPhase("ターン進行中");
-    setStatus("ターン進行中…（一時停止できます）");
-
-    const queue = buildActionQueue();
-
-    for (const act of queue){
-      if (mode !== "RUNNING") return;
-      await waitWhilePaused();
-
-      const who = (act.side === SIDE.YOU) ? "あなた" : "相手";
-      const pieceRole = roleName(act.type);
-      const pieceChar = dispChar(act.type);
-
-      logLine(`いま動く：${who} 〔${pieceRole}（${pieceChar}）〕`);
-
-      const pos = findPiecePosById(act.id);
-
-      // 倒された駒はそのターン以降のキューから除外（＝ここでスキップ）
-      if (!pos){
-        logLine("→ 行動なし（すでに退場）");
-        await sleepWithPause(SPEED.betweenActionMs);
-        continue;
-      }
-
-      if (pos.p.type === TYPE.KING){
-        logLine("→ 行動なし（司令は通常移動しない）");
-        await sleepWithPause(SPEED.betweenActionMs);
-        continue;
-      }
-
-      const mv = chooseBestMoveForPiece(pos.r, pos.c);
-      if (!mv){
-        logLine("→ 動けません");
-        clearHighlights();
-        await sleepWithPause(SPEED.betweenActionMs);
-        continue;
-      }
-
-      // 演出
-      setHighlights(mv.from, mv.to);
-      await sleepWithPause(SPEED.previewMs);
-
-      const result = applyMove(mv);
-      pushHistory(pos.p.id, mv.to);
-
-      render();
-      await sleepWithPause(SPEED.afterMs);
-      clearHighlights();
-
-      const captured = result.captured;
-      const kingCaptured = !!(captured && captured.type === TYPE.KING);
-
-      if (kingCaptured){
-        logLine(`決着：${who} が相手の司令を制覇`);
-        endGame(`${who}の勝ち`);
-        return;
-      }
-
-      if (captured){
-        const capWho = (captured.side===SIDE.YOU) ? "あなた" : "相手";
-        logLine(`捕獲：${who} の ${pieceRole}（${pieceChar}）が ${capWho} の ${roleName(captured.type)}（${dispChar(captured.type)}）を取った`);
-      }
-
-      await sleepWithPause(SPEED.betweenActionMs);
-    }
-
-    // ターン終了ログ
-    logLine(`ターン${turn}終了`);
-
-    // ターン終端勝敗チェック（必ず）
-    const win = checkWinnerAtTurnEnd();
-    if (win){
-      endGame(win);
-      return;
-    }
-
-    // 停滞チェック（ターン単位）
-    const mScore = materialScore();
-    const kScore = kingDistanceScore();
-    const progressed = (mScore !== lastMaterialScore) || (kScore !== lastKingDistanceScore);
-
-    stagnationCounter = progressed ? 0 : (stagnationCounter + 1);
-    lastMaterialScore = mScore;
-    lastKingDistanceScore = kScore;
-
-    if (stagnationCounter >= STAGNATION_LIMIT){
-      logLine(`停滞検知：揺らぎを強めます（stagnation=${stagnationCounter}）`);
-      stagnationCounter = Math.floor(STAGNATION_LIMIT/2);
-    }
-
-    setPhase("待機");
-    setStatus("ターン完了。『オート進行（1ターン）』で次へ。");
-
-  } finally{
-    autoRunning = false;
-    if (mode === "RUNNING") btnAuto.disabled = false;
-  }
+function endGame(message, cls="warn"){
+  mode = "ENDED";
+  autoRunning = false;
+  btnPause.disabled = true;
+  btnPause.textContent = "一時停止";
+  setMode("終了");
+  setStatus(message, cls==="good" ? "success" : (cls==="bad"?"error":"warn"));
+  logLine(message, cls);
 }
 
 /** ===== Pause ===== */
 function togglePause(){
-  if (mode === "RUNNING"){
+  if (mode!=="RUNNING" && mode!=="PAUSED") return;
+
+  if (mode==="RUNNING"){
     mode = "PAUSED";
-    setStatus("一時停止中。『一時停止』を押すと再開します。");
-    setPhase("停止");
-    btnAuto.disabled = true;
-    logLine("一時停止");
-  } else if (mode === "PAUSED"){
+    btnPause.textContent = "再開";
+    setMode("一時停止");
+    setStatus("一時停止中：再開で続きます", "warn");
+    logLine("一時停止", "warn");
+  } else {
     mode = "RUNNING";
-    setStatus("再開しました。");
-    setPhase("待機");
-    btnAuto.disabled = autoRunning ? true : false;
-    logLine("再開");
+    btnPause.textContent = "一時停止";
+    setMode("進行");
+    setStatus("ゲーム進行中：オートで手番を処理します");
+    logLine("再開", "warn");
+    // ループ再開
+    autoRunning = true;
+    loop();
   }
 }
 
-/** ===== End Game ===== */
-function endGame(resultText){
-  mode = "ENDED";
-  autoRunning = false;
-
-  btnAuto.disabled = true;
-  btnPause.disabled = true;
-
-  setPhase("終了");
-  setStatus(`ゲーム終了：${resultText}`);
-  logLine(`ゲーム終了：${resultText}`);
-}
-
 /** ===== Init ===== */
-(function init(){
-  resetAll();
-})();
+resetAll();
+updateHUDForSetup();
+render();
+
 </script>
 </body>
 </html>
-
-
