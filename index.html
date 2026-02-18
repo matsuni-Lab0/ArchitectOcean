@@ -205,6 +205,24 @@
     .log .sys{ color: #1d4ed8; font-weight: 800; }
     .log .win{ color: #166534; font-weight: 900; }
     .log .lose{ color: #7f1d1d; font-weight: 900; }
+    .selected{
+      display:flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .selected code{
+      font-weight: 900;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .log .err{ color: #7f1d1d; font-weight: 900; }
+
 
     @media (max-width: 980px){
       .wrap{ grid-template-columns: 1fr; }
@@ -252,6 +270,12 @@
                 <div class="big" id="placingName">司令</div>
               </div>
               <div class="piece" id="placingGlyph">司令</div>
+            </div>
+
+
+            <div class="selected">
+              <div class="muted">選択中</div>
+              <div><code id="selCoord">未選択</code></div>
             </div>
 
             <div class="row" style="margin:0;">
@@ -355,6 +379,7 @@ const tagEnemy = document.getElementById("tagEnemy");
 const placingName = document.getElementById("placingName");
 const placingGlyph = document.getElementById("placingGlyph");
 const placingHint = document.getElementById("placingHint");
+const selCoord = document.getElementById("selCoord");
 
 const hudTurn = document.getElementById("hudTurn");
 const hudAction = document.getElementById("hudAction");
@@ -377,6 +402,10 @@ let running = false;
 let paused = false;
 let abortToken = 0;
 
+window.onerror = (msg, src, line, col) => {
+  logErr(`JSエラー: ${msg} (${line}:${col})`);
+};
+
 /* 残り配置順（固定） */
 const SETUP_ORDER = [
   { kind: "D" }, { kind: "D" },
@@ -394,7 +423,10 @@ function init(){
   btnReset.addEventListener("click", resetGame);
   btnPause.addEventListener("click", togglePause);
   btnStart.addEventListener("click", startGame);
-  btnDone.addEventListener("click", confirmPlacement);
+  btnDone.addEventListener("click", () => {
+    logSys("（反応確認）決定ボタンが押されました。");
+    try { confirmPlacement(); } catch(e) { logErr("決定処理で例外: " + (e?.message || e)); console.error(e); }
+  });
   btnBack.addEventListener("click", undoPlacement);
 }
 
@@ -472,6 +504,8 @@ function updatePlacingUI(){
     return;
   }
   document.getElementById("placePanel").style.display = "grid";
+
+  if(selCoord){ selCoord.textContent = selectedCell ? `(${selectedCell.x+1},${selectedCell.y+1})` : "未選択"; }
 
   if(setupStep === 1){
     placingName.textContent = "司令";
@@ -936,6 +970,7 @@ function logLine(text, cls){
   logEl.scrollTop = logEl.scrollHeight;
 }
 function logSys(text){ logLine(text, "sys"); }
+function logErr(text){ logLine(text, "err"); }
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
