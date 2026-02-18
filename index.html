@@ -14,7 +14,6 @@
       --text: #0f172a;
       --accent: #2563eb;
       --warning: #dc2626;
-      --success: #16a34a;
     }
     body{
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
@@ -23,8 +22,8 @@
       padding: 16px;
       background: linear-gradient(180deg, var(--page) 0%, #ffffff 65%);
     }
-    h1{ 
-      font-size: 18px; 
+    h1{
+      font-size: 18px;
       margin: 0 0 8px;
       display: flex;
       align-items: center;
@@ -72,19 +71,16 @@
       font-size: 18px;
       transition: all 0.15s ease;
     }
-    .cell:hover{
-      border-color: #94a3b8;
-    }
+    .cell:hover{ border-color: #94a3b8; }
+
     .cell[data-zone="enemy"]{ background: #fff3ee; }
     .cell[data-zone="neutral"]{ background: #ffffff; }
     .cell[data-zone="you"]{ background: #eef6ff; }
     .cell[data-zone="frontline"]{ background: #fff8db; }
 
-    /* subtle side tint */
     .p-you{ color:#0f172a; }
     .p-enemy{ color:#7c2d12; }
 
-    /* highlight */
     .hi-from{
       outline: 3px solid var(--accent);
       box-shadow: 0 0 10px rgba(37,99,235,0.35);
@@ -94,10 +90,22 @@
       outline: 2px dashed var(--accent);
       z-index: 2;
     }
-    .blink-to{
-      animation: blink 0.42s step-end infinite;
-    }
+    .blink-to{ animation: blink 0.42s step-end infinite; }
     @keyframes blink{ 50%{ opacity: 0.35; } }
+
+    /* STEP1: 司令3択マスのガイド（見逃し防止） */
+    .cell.opt-k{
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.25) inset;
+    }
+    .cell.opt-k::after{
+      content:"";
+      position:absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid rgba(37,99,235,0.35);
+      opacity: 0.9;
+    }
 
     .row{
       display: flex;
@@ -120,27 +128,20 @@
       background: #f3f6fb;
       border-color: #94a3b8;
     }
-    button:disabled{
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
+    button:disabled{ opacity: 0.45; cursor: not-allowed; }
     button.primary{
       background: var(--accent);
       color: white;
       border-color: var(--accent);
     }
-    button.primary:hover:not(:disabled){
-      background: #1d4ed8;
-    }
+    button.primary:hover:not(:disabled){ background: #1d4ed8; }
     button.danger{
       background: var(--warning);
       color: white;
       border-color: var(--warning);
     }
-    .muted{ 
-      opacity: 0.78; 
-      font-size: 12px; 
-    }
+    .muted{ opacity: 0.78; font-size: 12px; }
+
     .kv{
       display: grid;
       grid-template-columns: 140px 1fr;
@@ -159,7 +160,6 @@
       font-weight: 800;
     }
     .tag.ok{ border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
-    .tag.ng{ border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
     .tag.wait{ border-color: #bfdbfe; background: #eff6ff; color: #1e3a8a; }
 
     .big{
@@ -183,10 +183,6 @@
       justify-content: space-between;
       gap: 10px;
     }
-    .place-now .who{
-      font-weight: 900;
-      font-size: 14px;
-    }
     .place-now .piece{
       font-size: 16px;
       font-weight: 900;
@@ -203,17 +199,13 @@
       line-height: 1.5;
       white-space: pre-wrap;
     }
-    .log .t{
-      color: #64748b;
-      font-weight: 700;
-    }
+    .log .t{ color: #64748b; font-weight: 700; }
     .log .you{ color: #0f172a; font-weight: 800; }
     .log .enemy{ color: #7c2d12; font-weight: 800; }
     .log .sys{ color: #1d4ed8; font-weight: 800; }
     .log .win{ color: #166534; font-weight: 900; }
     .log .lose{ color: #7f1d1d; font-weight: 900; }
 
-    /* responsive */
     @media (max-width: 980px){
       .wrap{ grid-template-columns: 1fr; }
     }
@@ -290,6 +282,7 @@
         <div>・開始：相手配置と先攻/後攻が確定し、HUDに表示されます。</div>
         <div>・ターン（=ラウンド）：交互固定キューを全消化した単位</div>
         <div>・手番（=アクション）：1駒ぶんの行動</div>
+        <div>・STEP1の司令3択は、盤面に<strong>丸印</strong>でガイドします。</div>
       </div>
 
       <hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
@@ -315,9 +308,10 @@
  * Architect Ocean 7×7 - Aモード（オート＋配置UI段階化）
  * v0.2.1準拠
  *
- * 重要（今回の調整）：
- *  - 背景/配色を目に優しいライトテーマに調整
- *  - オートのテンポを「気持ち遅く」：SPEED を微増
+ * 直近の修正（マスターご指摘）：
+ *  - STEP1（司令3択）が分かりにくく、配置できない誤操作が起きたため、
+ *    司令3択を「下段（最奥列）」中央/左/右の3択に固定し、
+ *    盤面に丸印ガイド（opt-k）を表示するように修正。
  * ========================================================= */
 
 /* 速度（ここだけで一括調整できる） */
@@ -341,9 +335,9 @@ const KIND = {
 
 /* 初期配置（自軍は下2行、相手は開始時にランダム確定して表示） */
 const ZONE = {
-  YOU_ROWS: [5,6],        // ★自軍配置は2行目まで（3行目は不可）
-  ENEMY_ROWS: [0,1],      // 相手配置（開始時確定）
-  FRONTLINE_ROW: 4        // 黄色（境界）
+  YOU_ROWS: [5,6],        // 自軍配置は2行のみ
+  ENEMY_ROWS: [0,1],
+  FRONTLINE_ROW: 4
 };
 
 const boardEl = document.getElementById("board");
@@ -390,7 +384,6 @@ const SETUP_ORDER = [
   { kind: "S" }, { kind: "S" },
 ];
 
-/* 初期化 */
 init();
 
 function init(){
@@ -450,7 +443,7 @@ function resetGame(){
   updatePlacingUI();
 
   logEl.textContent = "";
-  logSys("リセットしました。開始前は先攻/後攻・相手配置は伏せています。");
+  logSys("リセットしました。STEP1の司令3択は、下段（最奥列）中央/左/右に丸印で表示されます。");
   hudTurn.textContent = "-";
   hudAction.textContent = "-";
   hudState.textContent = "配置中";
@@ -483,7 +476,7 @@ function updatePlacingUI(){
   if(setupStep === 1){
     placingName.textContent = "司令";
     placingGlyph.textContent = "司令";
-    placingHint.innerHTML = `STEP1：司令の位置を選び、<strong>決定</strong>で確定してください（3択）。`;
+    placingHint.innerHTML = `STEP1：盤面の<strong>丸印（3択）</strong>から司令の位置を選び、<strong>決定</strong>で確定してください。`;
     btnDone.textContent = "決定";
     btnBack.disabled = true;
     btnDone.disabled = (selectedCell === null);
@@ -503,11 +496,10 @@ function onCellClick(x,y){
   clearSelection();
 
   if(setupStep === 1){
-    // STEP1：司令 3択（自軍中心/左/右）
     const opts = getCommanderOptions();
     const ok = opts.some(p=>p.x===x && p.y===y);
     if(!ok){
-      logSys("STEP1：司令は指定の3択から選んでください。");
+      logSys("STEP1：司令は盤面の丸印（3択）から選んでください。");
       return;
     }
     selectedCell = {x,y};
@@ -516,7 +508,6 @@ function onCellClick(x,y){
     return;
   }
 
-  // STEP2：残り配置 自軍下2行のみ
   if(!isYouZone(y)){
     logSys("STEP2：自軍エリア（下2行）のみに配置できます。");
     return;
@@ -545,8 +536,9 @@ function getCellEl(x,y){
 }
 
 function getCommanderOptions(){
-  // 自軍エリア中心（下2行の上段中央= y=5,x=3）と左右
-  const baseY = ZONE.YOU_ROWS[0]; // 5
+  // ★重要：司令は「下段（最奥列）」中央/左/右の3択に固定
+  // 0-indexなので最奥列は y=6
+  const baseY = ZONE.YOU_ROWS[1]; // 6
   const baseX = 3;
   return [
     {x: baseX, y: baseY},
@@ -563,7 +555,6 @@ function confirmPlacement(){
   }
 
   if(setupStep === 1){
-    // 司令確定
     chosenKPos = {...selectedCell};
     placePiece("you","K", chosenKPos.x, chosenKPos.y);
     logSys(`司令を (${chosenKPos.x+1},${chosenKPos.y+1}) に配置しました。`);
@@ -577,7 +568,6 @@ function confirmPlacement(){
     return;
   }
 
-  // 残り配置
   const kind = SETUP_ORDER[setupIndex].kind;
   placePiece("you", kind, selectedCell.x, selectedCell.y);
   placedStack.push({kind, x:selectedCell.x, y:selectedCell.y});
@@ -587,7 +577,6 @@ function confirmPlacement(){
   clearSelection();
 
   if(setupIndex >= SETUP_ORDER.length){
-    // 自軍配置完了
     btnStart.disabled = false;
     logSys("自軍配置が完了しました。『開始』を押すと相手配置と先攻/後攻が確定します。");
     setPhaseTag();
@@ -606,7 +595,6 @@ function undoPlacement(){
   if(placedStack.length === 0) return;
 
   const last = placedStack.pop();
-  // remove piece
   const p = grid[last.y][last.x];
   if(p){
     p.alive = false;
@@ -637,18 +625,15 @@ function startGame(){
   abortToken++;
   const token = abortToken;
 
-  // 相手配置＆先攻後攻をここで確定（開始押下時）
   phase = "running";
   running = true;
   hudState.textContent = "対局中";
   document.getElementById("placePanel").style.display = "none";
 
-  // 先攻決定（秘匿解除）
   firstSide = (Math.random() < 0.5) ? "you" : "enemy";
   tagFirst.textContent = `先攻：${firstSide==="you" ? "あなた" : "相手"}`;
   tagFirst.className = "tag ok";
 
-  // 相手初期配置（開始で確定）
   randomizeEnemyPlacement();
   tagEnemy.textContent = "相手配置：確定";
   tagEnemy.className = "tag ok";
@@ -656,27 +641,22 @@ function startGame(){
   logSys("『開始』が押されました：相手配置と先攻/後攻がこのタイミングで確定しました。");
   renderBoard();
 
-  // ボタン
   btnStart.disabled = true;
   btnDone.disabled = true;
   btnBack.disabled = true;
 
-  // ターン開始
   runLoop(token);
 }
 
 function randomizeEnemyPlacement(){
-  // 相手：司令1、駆2、巡2、偵2（同数）。上2行にランダム配置。
-  // 司令の位置は敵上段中央/左右（自軍と対称）から選ぶ
   const options = [
-    {x:3, y: ZONE.ENEMY_ROWS[1]}, // y=1
+    {x:3, y: ZONE.ENEMY_ROWS[1]},
     {x:2, y: ZONE.ENEMY_ROWS[1]},
     {x:4, y: ZONE.ENEMY_ROWS[1]},
   ];
   const kpos = options[Math.floor(Math.random()*options.length)];
   placePiece("enemy","K", kpos.x, kpos.y);
 
-  // 残りは空きマスからランダム
   const kinds = ["D","D","C","C","S","S"];
   for(const kind of kinds){
     const empties = [];
@@ -690,10 +670,9 @@ function randomizeEnemyPlacement(){
   }
 }
 
-/* =========================================================
- * 盤面表示
- * ========================================================= */
 function renderBoard(){
+  const kOpts = (phase==="setup" && setupStep===1) ? getCommanderOptions() : [];
+
   for(let y=0;y<H;y++){
     for(let x=0;x<W;x++){
       const cell = getCellEl(x,y);
@@ -705,6 +684,9 @@ function renderBoard(){
       else if(isYouZone(y)) zone = "you";
       cell.dataset.zone = zone;
 
+      // remove opt marks by default
+      cell.classList.remove("opt-k");
+
       // content
       const p = grid[y][x];
 
@@ -713,36 +695,22 @@ function renderBoard(){
         cell.textContent = "";
         cell.title = "";
         cell.classList.remove("p-enemy","p-you");
-        continue;
-      }
-
-      if(!p){
+      }else if(!p){
         cell.textContent = "";
         cell.title = "";
         cell.classList.remove("p-enemy","p-you");
       }else{
-        const label = KIND[p.kind].label;
-        const glyph = KIND[p.kind].glyph;
-        cell.textContent = glyph;
-        cell.title = `${p.side==="you"?"あなた":"相手"}：${label}`;
+        cell.textContent = KIND[p.kind].glyph;
+        cell.title = `${p.side==="you"?"あなた":"相手"}：${KIND[p.kind].label}`;
         cell.classList.toggle("p-you", p.side==="you");
         cell.classList.toggle("p-enemy", p.side==="enemy");
       }
-    }
-  }
 
-  // STEP1 の3択を薄く示す（ユーザが迷わないように）
-  if(phase==="setup" && setupStep===1){
-    const opts = getCommanderOptions();
-    for(const o of opts){
-      const el = getCellEl(o.x,o.y);
-      el.style.boxShadow = "0 0 0 2px rgba(37,99,235,0.35) inset";
+      // STEP1 ガイド（空マスにopt-k）
+      if(kOpts.some(o=>o.x===x && o.y===y) && !p){
+        cell.classList.add("opt-k");
+      }
     }
-  }else{
-    // clear opt shadows
-    document.querySelectorAll(".cell").forEach(el=>{
-      el.style.boxShadow = "";
-    });
   }
 }
 
@@ -750,15 +718,10 @@ function isYouZone(y){ return ZONE.YOU_ROWS.includes(y); }
 function isEnemyZone(y){ return ZONE.ENEMY_ROWS.includes(y); }
 function isFrontline(y){ return y === ZONE.FRONTLINE_ROW; }
 
-/* =========================================================
- * オート進行（交互固定）
- * ========================================================= */
 async function runLoop(token){
-  // 初期の勝敗チェック
   if(checkEnd()) return;
 
   while(phase==="running" && running && token === abortToken){
-    // pause
     await waitWhilePaused(token);
     if(token !== abortToken) return;
 
@@ -780,7 +743,6 @@ async function runLoop(token){
       if(token !== abortToken) return;
       if(phase!=="running") return;
 
-      // 途中で倒されているならスキップ
       if(!actor.alive) continue;
 
       actionNo++;
@@ -789,23 +751,19 @@ async function runLoop(token){
       const role = KIND[actor.kind].label;
       logLine(`${who} 〔${role}〕の手番`, actor.side==="you" ? "you" : "enemy");
 
-      // 1駒行動
-      const moved = await doAutoAction(actor, token);
+      await doAutoAction(actor, token);
       if(token !== abortToken) return;
       if(checkEnd()) return;
 
-      // 間
-      await sleep(SPEED.betweenActionMs, token);
+      await sleep(SPEED.betweenActionMs);
       if(token !== abortToken) return;
     }
 
-    // ターン終了
     logSys(`ターン${turnNo}終了`);
     if(checkEnd()) return;
   }
 }
 
-/* 行動キュー：座標ソート（y昇順→x昇順→id）で安定化 */
 function sortedMovable(side){
   return pieces
     .filter(p=>p.alive && p.side===side && KIND[p.kind].movable)
@@ -817,7 +775,6 @@ function sortedMovable(side){
     });
 }
 
-/* 交互固定キュー作成 */
 function makeInterleavedQueue(first){
   const a = sortedMovable(first);
   const b = sortedMovable(first==="you" ? "enemy" : "you");
@@ -831,20 +788,16 @@ function makeInterleavedQueue(first){
   return q;
 }
 
-/* 1駒のオート行動 */
 async function doAutoAction(actor, token){
-  // 合法手一覧
   const moves = legalMoves(actor);
   if(moves.length===0){
     logSys("動けません。");
     return false;
   }
 
-  // 優先順位：①司令を取れる ②何か取れる ③司令に近づく
   const enemyK = findCommander(opponent(actor.side));
   let best = null;
 
-  // ① 司令取り
   if(enemyK){
     best = moves.find(m=>m.capture && m.capture.kind==="K");
     if(best){
@@ -854,7 +807,6 @@ async function doAutoAction(actor, token){
     }
   }
 
-  // ② 何か取り
   best = moves.find(m=>m.capture);
   if(best){
     await animateMove(actor, best, token, "駒を取ります");
@@ -862,7 +814,6 @@ async function doAutoAction(actor, token){
     return true;
   }
 
-  // ③ 司令に近づく
   if(enemyK){
     best = moves
       .slice()
@@ -880,9 +831,7 @@ async function doAutoAction(actor, token){
   return true;
 }
 
-/* 移動演出 */
 async function animateMove(actor, move, token, reason){
-  // highlight
   const fromEl = getCellEl(actor.x, actor.y);
   const toEl = getCellEl(move.to.x, move.to.y);
   fromEl.classList.add("hi-from");
@@ -890,38 +839,31 @@ async function animateMove(actor, move, token, reason){
 
   logSys(reason);
 
-  await sleep(SPEED.previewMs, token);
+  await sleep(SPEED.previewMs);
   if(token !== abortToken) return;
 
-  // cleanup
   fromEl.classList.remove("hi-from");
   toEl.classList.remove("hi-to","blink-to");
 
-  await sleep(SPEED.afterMs, token);
+  await sleep(SPEED.afterMs);
 }
 
-/* 移動適用 */
 function applyMove(actor, move){
-  // capture
   if(move.capture){
     move.capture.alive = false;
     grid[move.capture.y][move.capture.x] = null;
     logSys(`→ ${move.capture.side==="you"?"あなた":"相手"}の${KIND[move.capture.kind].label}を撃沈`);
   }
 
-  // move
   grid[actor.y][actor.x] = null;
   actor.x = move.to.x;
   actor.y = move.to.y;
   grid[actor.y][actor.x] = actor;
 
-  // alive cleanup
   pieces = pieces.filter(p=>p.alive);
-
   renderBoard();
 }
 
-/* 合法手（簡易：上下左右1）※既存ルールに合わせるならここを拡張 */
 function legalMoves(p){
   const dirs = [
     {dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},
@@ -933,9 +875,8 @@ function legalMoves(p){
     if(nx<0||nx>=W||ny<0||ny>=H) continue;
 
     const target = grid[ny][nx];
-    if(target && target.side===p.side) continue; // ally block
+    if(target && target.side===p.side) continue;
 
-    // 自軍/敵軍の司令は動けないだけで、盤上制限は無し（必要ならここで制限）
     res.push({
       from:{x:p.x,y:p.y},
       to:{x:nx,y:ny},
@@ -955,7 +896,6 @@ function manhattan(x1,y1,x2,y2){
   return Math.abs(x1-x2) + Math.abs(y1-y2);
 }
 
-/* 勝敗チェック */
 function checkEnd(){
   const youK = findCommander("you");
   const enK  = findCommander("enemy");
@@ -974,7 +914,6 @@ function checkEnd(){
   return false;
 }
 
-/* Pause */
 function togglePause(){
   if(!running) return;
   paused = !paused;
@@ -984,11 +923,10 @@ function togglePause(){
 
 async function waitWhilePaused(token){
   while(paused && token===abortToken){
-    await sleep(80, token);
+    await sleep(80);
   }
 }
 
-/* logging */
 function logLine(text, cls){
   const t = new Date();
   const stamp = `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}:${String(t.getSeconds()).padStart(2,"0")}`;
@@ -1002,14 +940,8 @@ function escapeHtml(s){
   return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
 
-/* utils */
-function sleep(ms, token){
-  return new Promise(resolve=>{
-    const id = setTimeout(()=>{
-      clearTimeout(id);
-      resolve();
-    }, ms);
-  });
+function sleep(ms){
+  return new Promise(resolve=>setTimeout(resolve, ms));
 }
 </script>
 </body>
