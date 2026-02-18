@@ -232,7 +232,7 @@
 <body>
   <h1>
     Architect Ocean 7×7
-    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v8</span></span>
+    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v9</span></span>
   </h1>
 
   <div class="wrap">
@@ -366,7 +366,7 @@ const ZONE = {
 
 
 // =========================================================
-// v8: Aモードでも「駆 / 巡 / 偵」ごとに規定行動（駒AI）を固定する
+// v9: Aモードでも「駆 / 巡 / 偵」ごとに規定行動（駒AI）を固定する
 // - 秘密兵器（Q/秘密兵器）はオートモードでは使用しない（配置もしない）
 // - 司令（K/司令）は現状「動けない」
 // =========================================================
@@ -595,6 +595,20 @@ function setPhaseTag(){
     tagPhase.className = "tag ok";
     return;
   }
+
+  // v9: STEP2が完了した場合（setupIndex が配列長以上）に「7/6」表示や例外を出さない
+  if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
+    tagPhase.textContent = "配置：完了（開始できます）";
+    tagPhase.className = "tag ok";
+    return;
+  }
+
+  if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
+    logSys("配置は完了しています。『開始』を押してください。");
+    updatePlacingUI();
+    return;
+  }
+
   if(setupStep === 1){
     tagPhase.textContent = "配置：STEP1 司令位置選択中";
     tagPhase.className = "tag wait";
@@ -611,24 +625,47 @@ function updatePlacingUI(){
   }
   document.getElementById("placePanel").style.display = "grid";
 
+  // v9: 選択座標の可視化
   if(selCoord){ selCoord.textContent = selectedCell ? `(${selectedCell.x+1},${selectedCell.y+1})` : "未選択"; }
+
+  // v9: STEP2が完了した場合（setupIndex >= 長さ）に例外が出ないようガード
+  if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
+    placingName.textContent = "配置完了";
+    placingGlyph.textContent = "OK";
+    placingHint.innerHTML = `自軍配置が完了しました。<strong>「開始」</strong>を押すと相手配置と先攻/後攻が確定します。`;
+
+    btnStart.disabled = false;
+    btnDone.disabled = true;           // ★完了後は「決定」を押せないようにする
+    btnBack.disabled = (placedStack.length === 0);
+
+    return;
+  }
 
   if(setupStep === 1){
     placingName.textContent = "司令";
     placingGlyph.textContent = "司令";
     placingHint.innerHTML = `STEP1：盤面の<strong>丸印（3択）</strong>から司令の位置を選び、<strong>決定</strong>で確定してください。`;
-    btnDone.textContent = "決定";
     btnBack.disabled = true;
-    btnDone.disabled = (selectedCell === null);
+    btnDone.disabled = !selectedCell;
     return;
   }
-  const kind = SETUP_ORDER[setupIndex].kind;
+
+  const entry = SETUP_ORDER[setupIndex];
+  if(!entry){
+    // 念のため（不整合が起きても落ちない）
+    placingName.textContent = "配置中";
+    placingGlyph.textContent = "";
+    placingHint.textContent = "配置情報の取得に失敗しました。リセットしてください。";
+    btnDone.disabled = true;
+    return;
+  }
+
+  const kind = entry.kind;
   placingName.textContent = KIND[kind].label;
   placingGlyph.textContent = KIND[kind].glyph;
   placingHint.innerHTML = `STEP2：<strong>${KIND[kind].label}</strong>を自軍エリア（下2行）に配置し、<strong>決定</strong>で次へ。`;
-  btnDone.textContent = "決定";
   btnBack.disabled = (placedStack.length === 0);
-  btnDone.disabled = (selectedCell === null);
+  btnDone.disabled = !selectedCell;
 }
 
 function onCellClick(x,y){
@@ -708,6 +745,16 @@ function confirmPlacement(){
     return;
   }
 
+  // v9: 既に配置完了しているのに「決定」が押された場合は無視
+  if(setupIndex >= SETUP_ORDER.length){
+    logSys("配置は完了しています。『開始』を押してください。");
+    btnDone.disabled = true;
+    btnStart.disabled = false;
+    setPhaseTag();
+    updatePlacingUI();
+    return;
+  }
+
   const kind = SETUP_ORDER[setupIndex].kind;
   placePiece("you", kind, selectedCell.x, selectedCell.y);
   placedStack.push({kind, x:selectedCell.x, y:selectedCell.y});
@@ -718,6 +765,7 @@ function confirmPlacement(){
 
   if(setupIndex >= SETUP_ORDER.length){
     btnStart.disabled = false;
+    btnDone.disabled = true;
     logSys("自軍配置が完了しました。『開始』を押すと相手配置と先攻/後攻が確定します。");
     setPhaseTag();
     updatePlacingUI();
@@ -1002,7 +1050,7 @@ function applyMove(actor, move){
 }
 
 function legalMoves(p){
-  // v8: 駒の移動ルールを「前庭プロトタイプ準拠」に固定
+  // v9: 駒の移動ルールを「前庭プロトタイプ準拠」に固定
   // 参照（要点）：
   // - 司令（K）は固定（移動なし）
   // - 駆逐艦（D）は前後（縦）1マス
