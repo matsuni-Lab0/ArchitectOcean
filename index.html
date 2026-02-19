@@ -76,7 +76,7 @@
     .cell[data-zone="enemy"]{ background: #fff3ee; }
     .cell[data-zone="neutral"]{ background: #ffffff; }
     .cell[data-zone="you"]{ background: #eef6ff; }
-    .cell[data-zone="frontline"]{ background: #fff8db; }
+    .cell[data-zone="frontline"]{ background: #ffffff; } /* v11: 前線の黄色表示を廃止 */
 
     .p-you{ color:#0f172a; }
     .p-enemy{ color:#7c2d12; }
@@ -205,6 +205,7 @@
     .log .sys{ color: #1d4ed8; font-weight: 800; }
     .log .win{ color: #166534; font-weight: 900; }
     .log .lose{ color: #7f1d1d; font-weight: 900; }
+    .draw{ color: #475569; font-weight: 900; } /* v11: 引き分け */
     .selected{
       display:flex;
       gap: 8px;
@@ -232,7 +233,7 @@
 <body>
   <h1>
     Architect Ocean 7×7
-    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v10</span></span>
+    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v11</span></span>
   </h1>
 
   <div class="wrap">
@@ -258,7 +259,7 @@
         <div>
           <div class="board" id="board"></div>
           <div class="muted" style="margin-top:8px;">
-            自軍初期配置は<strong>自軍エリア（下2行）</strong>のみです。前線は黄色。
+            自軍初期配置は<strong>自軍エリア（下2行）</strong>のみです。
           </div>
         </div>
 
@@ -309,7 +310,19 @@
         <div>・STEP1の司令3択は、盤面に<strong>丸印</strong>でガイドします。</div>
       </div>
 
+      
+      <h2 style="margin:0 0 8px; font-size:14px;">駒の動き（前庭プロトタイプ準拠）</h2>
+      <div class="muted" style="line-height:1.7;">
+        <div>・<strong>司令</strong>：移動なし（固定）</div>
+        <div>・<strong>駆</strong>：縦1マス（前／後）</div>
+        <div>・<strong>巡</strong>：前1マス ＋ 斜め前（左／右）1マス</div>
+        <div>・<strong>偵</strong>：斜め4方向 1マス</div>
+        <div>・<strong>秘密兵器</strong>：8方向 1マス（※Aモードでは使用しません）</div>
+        <div style="margin-top:6px;">※「前」：自軍＝上（y-1）／相手＝下（y+1）</div>
+      </div>
+
       <hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
+<hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
 
       <h2 style="margin:0 0 8px; font-size:14px;">オートAIの優先順位</h2>
       <div class="muted" style="line-height:1.7;">
@@ -345,6 +358,32 @@ const SPEED = {
   betweenActionMs: 140
 };
 
+const LOOP_GUARD = {
+  maxTurns: 200,            // v11: 最大ターンで打ち切り
+  repeatThreshold: 3,       // v11: 同一盤面がこの回数出たら引き分け
+  noProgressTurns: 8        // v11: 動きが発生しないターン連続で引き分け
+};
+
+let seenBoardCounts = new Map();
+let noProgressTurnStreak = 0;
+
+function boardKey(){
+  ensureGridIntegrity('boardKey');
+  // 盤面を安定にハッシュ化（駒の種類/陣営/座標のみ）
+  const list = (pieces||[])
+    .filter(p=>p && p.alive)
+    .map(p=>`${p.side[0]}${p.kind}:${p.x},${p.y}`)
+    .sort();
+  return list.join("|");
+}
+
+function endDraw(reason){
+  phase="ended"; running=false;
+  logLine(`引き分け：${reason}`, "draw");
+  hudState.textContent = "終了";
+}
+
+
 /* 盤サイズ */
 const W = 7, H = 7;
 
@@ -366,7 +405,7 @@ const ZONE = {
 
 
 // =========================================================
-// v10: Aモードでも「駆 / 巡 / 偵」ごとに規定行動（駒AI）を固定する
+// v11: Aモードでも「駆 / 巡 / 偵」ごとに規定行動（駒AI）を固定する
 // - 秘密兵器（Q/秘密兵器）はオートモードでは使用しない（配置もしない）
 // - 司令（K/司令）は現状「動けない」
 // =========================================================
@@ -596,7 +635,7 @@ function setPhaseTag(){
     return;
   }
 
-  // v10: STEP2が完了した場合（setupIndex が配列長以上）に「7/6」表示や例外を出さない
+  // v11: STEP2が完了した場合（setupIndex が配列長以上）に「7/6」表示や例外を出さない
   if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
     tagPhase.textContent = "配置：完了（開始できます）";
     tagPhase.className = "tag ok";
@@ -625,10 +664,10 @@ function updatePlacingUI(){
   }
   document.getElementById("placePanel").style.display = "grid";
 
-  // v10: 選択座標の可視化
+  // v11: 選択座標の可視化
   if(selCoord){ selCoord.textContent = selectedCell ? `(${selectedCell.x+1},${selectedCell.y+1})` : "未選択"; }
 
-  // v10: STEP2が完了した場合（setupIndex >= 長さ）に例外が出ないようガード
+  // v11: STEP2が完了した場合（setupIndex >= 長さ）に例外が出ないようガード
   if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
     placingName.textContent = "配置完了";
     placingGlyph.textContent = "OK";
@@ -745,7 +784,7 @@ function confirmPlacement(){
     return;
   }
 
-  // v10: 既に配置完了しているのに「決定」が押された場合は無視
+  // v11: 既に配置完了しているのに「決定」が押された場合は無視
   if(setupIndex >= SETUP_ORDER.length){
     logSys("配置は完了しています。『開始』を押してください。");
     btnDone.disabled = true;
@@ -816,6 +855,10 @@ function startGame(){
   const token = abortToken;
 
   phase = "running";
+  // v11: ループ/引き分け検出を初期化
+  seenBoardCounts.clear();
+  noProgressTurnStreak = 0;
+
   running = true;
   hudState.textContent = "対局中";
   document.getElementById("placePanel").style.display = "none";
@@ -839,7 +882,7 @@ function startGame(){
 }
 
 function randomizeEnemyPlacement(){
-  // v10: 敵も自軍と同じ配置ルール
+  // v11: 敵も自軍と同じ配置ルール
   // - 司令は自陣の最奥列（敵は最上段）中央/左/右の3択
   // - 残り駒は自陣2行内の空きマスにランダム配置
 
@@ -940,16 +983,23 @@ async function runLoop(token){
     if(token !== abortToken) return;
 
     turnNo++;
+    if(turnNo > LOOP_GUARD.maxTurns){
+      endDraw(`最大ターン（${LOOP_GUARD.maxTurns}）に達しました`);
+      return;
+    }
     actionNo = 0;
     hudTurn.textContent = String(turnNo);
     logSys(`ターン${turnNo}開始（先攻：${firstSide==="you"?"あなた":"相手"}）`);
+
+    let movedThisTurn = false;
+    let capturedThisTurn = false;
 
     const queue = makeInterleavedQueue(firstSide);
     if(queue.length === 0){
       logSys("動ける駒がありません（両者）。");
       if(checkEnd()) return;
-      logSys(`ターン${turnNo}終了`);
-      continue;
+      endDraw("両者とも動ける駒がありません");
+      return;
     }
 
     for(const actor of queue){
@@ -965,7 +1015,9 @@ async function runLoop(token){
       const role = KIND[actor.kind].label;
       logLine(`${who} 〔${role}〕の手番`, actor.side==="you" ? "you" : "enemy");
 
-      await doAutoAction(actor, token);
+      const actRes = await doAutoAction(actor, token);
+      movedThisTurn = movedThisTurn || !!actRes?.moved;
+      capturedThisTurn = capturedThisTurn || !!actRes?.captured;
       if(token !== abortToken) return;
       if(checkEnd()) return;
 
@@ -974,6 +1026,26 @@ async function runLoop(token){
     }
 
     logSys(`ターン${turnNo}終了`);
+
+    // v11: 盤面反復（∞ループ）と停滞の検出
+    const key = boardKey();
+    const cnt = (seenBoardCounts.get(key) || 0) + 1;
+    seenBoardCounts.set(key, cnt);
+    if(cnt >= LOOP_GUARD.repeatThreshold){
+      endDraw("同一盤面の反復を検出しました（∞ループ対策）");
+      return;
+    }
+
+    if(!movedThisTurn && !capturedThisTurn){
+      noProgressTurnStreak++;
+      if(noProgressTurnStreak >= LOOP_GUARD.noProgressTurns){
+        endDraw("動きが発生しないターンが続きました");
+        return;
+      }
+    }else{
+      noProgressTurnStreak = 0;
+    }
+
     if(checkEnd()) return;
   }
 }
@@ -1006,17 +1078,18 @@ async function doAutoAction(actor, token){
   const moves = legalMoves(actor);
   if(moves.length===0){
     logSys("動けません。");
-    return false;
+    return { moved:false, captured:false };
   }
 
   const enemyK = findCommander(opponent(actor.side));
   const picked = pickMoveForActor(actor, moves, enemyK);
   const best = picked?.move || moves[0];
   const reason = picked?.reason || "移動します";
+  const captured = !!best.capture;
 
   await animateMove(actor, best, token, reason);
   applyMove(actor, best);
-  return true;
+  return { moved:true, captured };
 }
 
 
@@ -1038,6 +1111,7 @@ async function animateMove(actor, move, token, reason){
 }
 
 function applyMove(actor, move){
+  ensureGridIntegrity("applyMove");
   if(move.capture){
     move.capture.alive = false;
     grid[move.capture.y][move.capture.x] = null;
@@ -1054,7 +1128,7 @@ function applyMove(actor, move){
 }
 
 function legalMoves(p){
-  // v10: 駒の移動ルールを「前庭プロトタイプ準拠」に固定
+  // v11: 駒の移動ルールを「前庭プロトタイプ準拠」に固定
   // 参照（要点）：
   // - 司令（K）は固定（移動なし）
   // - 駆逐艦（D）は前後（縦）1マス
