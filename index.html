@@ -93,6 +93,18 @@
     .blink-to{ animation: blink 0.42s step-end infinite; }
     @keyframes blink{ 50%{ opacity: 0.35; } }
 
+    /* 移動可能マスの事前表示（v11+） */
+    .opt-move{
+      outline: 2px solid rgba(37,99,235,0.35);
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.12) inset;
+      z-index: 1;
+    }
+    .opt-cap{
+      outline: 2px solid rgba(220,38,38,0.35);
+      box-shadow: 0 0 0 2px rgba(220,38,38,0.10) inset;
+      z-index: 1;
+    }
+
     /* STEP1: 司令3択マスのガイド（見逃し防止） */
     .cell.opt-k{
       box-shadow: 0 0 0 2px rgba(37,99,235,0.25) inset;
@@ -224,7 +236,6 @@
     }
     .log .err{ color: #7f1d1d; font-weight: 900; }
 
-
     @media (max-width: 980px){
       .wrap{ grid-template-columns: 1fr; }
     }
@@ -273,7 +284,6 @@
               <div class="piece" id="placingGlyph">司令</div>
             </div>
 
-
             <div class="selected">
               <div class="muted">選択中</div>
               <div><code id="selCoord">未選択</code></div>
@@ -310,7 +320,6 @@
         <div>・STEP1の司令3択は、盤面に<strong>丸印</strong>でガイドします。</div>
       </div>
 
-      
       <h2 style="margin:0 0 8px; font-size:14px;">駒の動き（前庭プロトタイプ準拠）</h2>
       <div class="muted" style="line-height:1.7;">
         <div>・<strong>司令</strong>：移動なし（固定）</div>
@@ -322,7 +331,7 @@
       </div>
 
       <hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
-<hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
+      <hr style="border:none;border-top:1px solid var(--border); margin:10px 0;">
 
       <h2 style="margin:0 0 8px; font-size:14px;">オートAIの優先順位</h2>
       <div class="muted" style="line-height:1.7;">
@@ -344,11 +353,6 @@
 /* =========================================================
  * Architect Ocean 7×7 - Aモード（オート＋配置UI段階化）
  * v0.2.1準拠
- *
- * 直近の修正（マスターご指摘）：
- *  - STEP1（司令3択）が分かりにくく、配置できない誤操作が起きたため、
- *    司令3択を「下段（最奥列）」中央/左/右の3択に固定し、
- *    盤面に丸印ガイド（opt-k）を表示するように修正。
  * ========================================================= */
 
 /* 速度（ここだけで一括調整できる） */
@@ -383,7 +387,6 @@ function endDraw(reason){
   hudState.textContent = "終了";
 }
 
-
 /* 盤サイズ */
 const W = 7, H = 7;
 
@@ -403,11 +406,8 @@ const ZONE = {
   FRONTLINE_ROW: 4
 };
 
-
 // =========================================================
 // v11: Aモードでも「駆 / 巡 / 偵」ごとに規定行動（駒AI）を固定する
-// - 秘密兵器（Q/秘密兵器）はオートモードでは使用しない（配置もしない）
-// - 司令（K/司令）は現状「動けない」
 // =========================================================
 const CAPTURE_VALUE = { K: 1000, Q: 260, C: 180, D: 160, S: 140 };
 const D_CAPTURE_PREF = { S: 300, D: 200, C: 120, Q: 350, K: 9999 }; // 駆逐艦は小型優先（規定）
@@ -421,18 +421,13 @@ function distToFrontline(m){
   return Math.abs(m.to.y - ZONE.FRONTLINE_ROW);
 }
 function advanceScore(m, side){
-  // enemyK が不明な（デバッグ用の）状況のための前進指標
-  // 自軍（下）＝ y が小さいほど前進／敵軍（上）＝ y が大きいほど前進
   return (side === "you") ? -m.to.y : m.to.y;
 }
 function pickMoveForActor(actor, moves, enemyK){
-  // 共通：司令を取れるなら最優先（勝利条件）
   const kCap = moves.find(m => m.capture && m.capture.kind === "K");
   if(kCap) return { move: kCap, reason: "司令を取ります" };
 
-  // 以降、駒ごとの「規定行動」
   if(actor.kind === "S"){
-    // 偵察艦（偵）：司令へ接近を最優先。距離同点なら「取らない（非捕獲）」を優先して索敵らしさを固定。
     const best = moves.slice().sort((a,b)=>{
       const da = enemyK ? distToK(a, enemyK) : 999;
       const db = enemyK ? distToK(b, enemyK) : 999;
@@ -451,7 +446,6 @@ function pickMoveForActor(actor, moves, enemyK){
   }
 
   if(actor.kind === "C"){
-    // 巡洋艦（巡）：戦闘（捕獲）を優先。取れない場合は司令へ接近。
     const caps = moves.filter(m => m.capture);
     if(caps.length){
       const best = caps.slice().sort((a,b)=>{
@@ -474,7 +468,6 @@ function pickMoveForActor(actor, moves, enemyK){
     return { move: best, reason: "巡洋：司令へ接近します" };
   }
 
-  // 駆逐艦（駆）：前線（黄色列）を意識。捕獲できるなら「規定の優先順位」で狙う。
   if(actor.kind === "D"){
     const caps = moves.filter(m => m.capture);
     if(caps.length){
@@ -492,22 +485,20 @@ function pickMoveForActor(actor, moves, enemyK){
     const best = moves.slice().sort((a,b)=>{
       const fa = distToFrontline(a);
       const fb = distToFrontline(b);
-      if(fa !== fb) return fa - fb; // まず前線へ
+      if(fa !== fb) return fa - fb;
       const da = distToK(a, enemyK);
       const db = distToK(b, enemyK);
-      if(da !== db) return da - db; // 次に司令へ
+      if(da !== db) return da - db;
       return moveKey(a) - moveKey(b);
     })[0];
     return { move: best, reason: "駆逐：前線を維持しつつ前進します" };
   }
 
-  // それ以外（将来拡張用）は従来の汎用方針
   const anyCap = moves.find(m => m.capture);
   if(anyCap) return { move: anyCap, reason: "駒を取ります" };
   const best = moves[0];
   return { move: best, reason: "移動します" };
 }
-
 
 const boardEl = document.getElementById("board");
 const logEl = document.getElementById("log");
@@ -635,16 +626,9 @@ function setPhaseTag(){
     return;
   }
 
-  // v11: STEP2が完了した場合（setupIndex が配列長以上）に「7/6」表示や例外を出さない
   if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
     tagPhase.textContent = "配置：完了（開始できます）";
     tagPhase.className = "tag ok";
-    return;
-  }
-
-  if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
-    logSys("配置は完了しています。『開始』を押してください。");
-    updatePlacingUI();
     return;
   }
 
@@ -664,19 +648,16 @@ function updatePlacingUI(){
   }
   document.getElementById("placePanel").style.display = "grid";
 
-  // v11: 選択座標の可視化
   if(selCoord){ selCoord.textContent = selectedCell ? `(${selectedCell.x+1},${selectedCell.y+1})` : "未選択"; }
 
-  // v11: STEP2が完了した場合（setupIndex >= 長さ）に例外が出ないようガード
   if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
     placingName.textContent = "配置完了";
     placingGlyph.textContent = "OK";
     placingHint.innerHTML = `自軍配置が完了しました。<strong>「開始」</strong>を押すと相手配置と先攻/後攻が確定します。`;
 
     btnStart.disabled = false;
-    btnDone.disabled = true;           // ★完了後は「決定」を押せないようにする
+    btnDone.disabled = true;
     btnBack.disabled = (placedStack.length === 0);
-
     return;
   }
 
@@ -691,7 +672,6 @@ function updatePlacingUI(){
 
   const entry = SETUP_ORDER[setupIndex];
   if(!entry){
-    // 念のため（不整合が起きても落ちない）
     placingName.textContent = "配置中";
     placingGlyph.textContent = "";
     placingHint.textContent = "配置情報の取得に失敗しました。リセットしてください。";
@@ -751,9 +731,21 @@ function getCellEl(x,y){
   return boardEl.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
 }
 
+function clearMoveOptions(){
+  document.querySelectorAll(".opt-move,.opt-cap").forEach(el=>{
+    el.classList.remove("opt-move","opt-cap");
+  });
+}
+function showMoveOptions(moves){
+  // 移動できるマスのみを表示（味方/端/障害物など「不合法」は legalMoves 側で除外済み）
+  for(const m of moves){
+    const el = getCellEl(m.to.x, m.to.y);
+    el.classList.add("opt-move");
+    if(m.capture) el.classList.add("opt-cap"); // 取れるマスは追加で強調
+  }
+}
+
 function getCommanderOptions(){
-  // ★重要：司令は「下段（最奥列）」中央/左/右の3択に固定
-  // 0-indexなので最奥列は y=6
   const baseY = ZONE.YOU_ROWS[1]; // 6
   const baseX = 3;
   return [
@@ -784,7 +776,6 @@ function confirmPlacement(){
     return;
   }
 
-  // v11: 既に配置完了しているのに「決定」が押された場合は無視
   if(setupIndex >= SETUP_ORDER.length){
     logSys("配置は完了しています。『開始』を押してください。");
     btnDone.disabled = true;
@@ -855,7 +846,6 @@ function startGame(){
   const token = abortToken;
 
   phase = "running";
-  // v11: ループ/引き分け検出を初期化
   seenBoardCounts.clear();
   noProgressTurnStreak = 0;
 
@@ -882,10 +872,6 @@ function startGame(){
 }
 
 function randomizeEnemyPlacement(){
-  // v11: 敵も自軍と同じ配置ルール
-  // - 司令は自陣の最奥列（敵は最上段）中央/左/右の3択
-  // - 残り駒は自陣2行内の空きマスにランダム配置
-
   const options = [
     {x:3, y: ZONE.ENEMY_ROWS[0]},
     {x:2, y: ZONE.ENEMY_ROWS[0]},
@@ -908,7 +894,6 @@ function randomizeEnemyPlacement(){
 }
 
 function ensureGridIntegrity(context){
-  // grid が壊れている／行が欠けている場合に備えて再構築（駒情報は pieces から復元）
   const ok = Array.isArray(grid)
     && grid.length === H
     && grid.every(row => Array.isArray(row) && row.length === W);
@@ -934,20 +919,16 @@ function renderBoard(){
     for(let x=0;x<W;x++){
       const cell = getCellEl(x,y);
 
-      // zone
       let zone = "neutral";
       if(isFrontline(y)) zone = "frontline";
       else if(isEnemyZone(y)) zone = "enemy";
       else if(isYouZone(y)) zone = "you";
       cell.dataset.zone = zone;
 
-      // remove opt marks by default
       cell.classList.remove("opt-k");
 
-      // content
       const row = grid[y] || []; const p = row[x] || null;
 
-      // 開始前は相手駒を表示しない（秘匿）
       if(phase === "setup" && p && p.side === "enemy"){
         cell.textContent = "";
         cell.title = "";
@@ -963,7 +944,6 @@ function renderBoard(){
         cell.classList.toggle("p-enemy", p.side==="enemy");
       }
 
-      // STEP1 ガイド（空マスにopt-k）
       if(kOpts.some(o=>o.x===x && o.y===y) && !p){
         cell.classList.add("opt-k");
       }
@@ -1027,7 +1007,6 @@ async function runLoop(token){
 
     logSys(`ターン${turnNo}終了`);
 
-    // v11: 盤面反復（∞ループ）と停滞の検出
     const key = boardKey();
     const cnt = (seenBoardCounts.get(key) || 0) + 1;
     seenBoardCounts.set(key, cnt);
@@ -1092,10 +1071,15 @@ async function doAutoAction(actor, token){
   return { moved:true, captured };
 }
 
-
 async function animateMove(actor, move, token, reason){
+  // v11+: まず「動けるマス」を全表示 → その後、実際の移動先を点滅ガイド
+  clearMoveOptions();
+  const allMoves = legalMoves(actor);
+  showMoveOptions(allMoves);
+
   const fromEl = getCellEl(actor.x, actor.y);
   const toEl = getCellEl(move.to.x, move.to.y);
+
   fromEl.classList.add("hi-from");
   toEl.classList.add("hi-to","blink-to");
 
@@ -1104,6 +1088,8 @@ async function animateMove(actor, move, token, reason){
   await sleep(SPEED.previewMs);
   if(token !== abortToken) return;
 
+  // 次の手番に残らないよう、表示を必ず解除
+  clearMoveOptions();
   fromEl.classList.remove("hi-from");
   toEl.classList.remove("hi-to","blink-to");
 
@@ -1128,15 +1114,6 @@ function applyMove(actor, move){
 }
 
 function legalMoves(p){
-  // v11: 駒の移動ルールを「前庭プロトタイプ準拠」に固定
-  // 参照（要点）：
-  // - 司令（K）は固定（移動なし）
-  // - 駆逐艦（D）は前後（縦）1マス
-  // - 巡洋艦（C）は前／斜め前（左・右）1マス
-  // - 偵察艦（S）は斜め4方向1マス
-  // - 秘密兵器（Q）は8方向1マス（※Aモードでは未使用だが将来用に実装）
-  //
-  // 「前」の定義：自軍＝上（y-1）へ進む／相手＝下（y+1）へ進む
   const f = (p.side === "you") ? -1 : +1;
 
   let deltas = [];
@@ -1144,16 +1121,16 @@ function legalMoves(p){
     case "K":
       deltas = [];
       break;
-    case "D": // 駆：前後（縦のみ）
+    case "D":
       deltas = [{dx:0,dy:f},{dx:0,dy:-f}];
       break;
-    case "C": // 巡：前 + 斜め前（左/右）
+    case "C":
       deltas = [{dx:0,dy:f},{dx:-1,dy:f},{dx:+1,dy:f}];
       break;
-    case "S": // 偵：斜め4方向
+    case "S":
       deltas = [{dx:-1,dy:-1},{dx:+1,dy:-1},{dx:-1,dy:+1},{dx:+1,dy:+1}];
       break;
-    case "Q": // 秘：8方向（未使用）
+    case "Q":
       deltas = [
         {dx:-1,dy:-1},{dx:0,dy:-1},{dx:+1,dy:-1},
         {dx:-1,dy:0},             {dx:+1,dy:0},
@@ -1161,7 +1138,6 @@ function legalMoves(p){
       ];
       break;
     default:
-      // 安全策：未知の駒は動かさない
       deltas = [];
   }
 
