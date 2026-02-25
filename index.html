@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Architect Ocean 7×7 - v0.2.1準拠（Aモード：オート＋配置UI段階化）</title>
+  <title>Architect Ocean 7×7 - AO_AutoBaseline_v0.2.1-final（Aモード：オート＋配置UI段階化）</title>
   <style>
     :root{
       --cell: 56px;
@@ -245,7 +245,7 @@
 <body>
   <h1>
     Architect Ocean 7×7
-    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">v11</span></span>
+    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">AO_AutoBaseline_v0.2.1-final</span></span>
   </h1>
 
   <div class="wrap">
@@ -354,6 +354,13 @@
 /* =========================================================
  * Architect Ocean 7×7 - Aモード（オート＋配置UI段階化）
  * v0.2.1準拠
+ * ========================================================= */
+
+/* =========================================================
+ * 凍結仕様メモ（Aモード ベースライン）
+ * - 共有ロジック候補：legalMoves(), pickMoveForActor(), renderBoard(), runLoop()
+ * - トレーニング流用範囲：盤面/合法手計算/オート進行/描画/ログ（配置UIは拡張対象）
+ * - コア制約：Kは通常移動しない／合法手表示→移動／Aモード基準挙動を維持
  * ========================================================= */
 
 /* 速度（ここだけで一括調整できる） */
@@ -1076,6 +1083,9 @@ async function doAutoAction(actor, token){
   const captured = !!best.capture;
 
   await animateMove(actor, best, token, reason);
+  // ジェプト指摘対応：リセット/中断時の非同期競合を防止（animate後に再確認）
+  if(token !== abortToken || phase !== "running") return { moved:false, captured:false };
+
   applyMove(actor, best);
   return { moved:true, captured };
 }
