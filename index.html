@@ -212,7 +212,8 @@
       white-space: pre-wrap;
     }
     .log .t{ color: #64748b; font-weight: 700; }
-    .log .you{ color: #0f172a; font-weight: 800; }
+        .log .turn{ opacity: 0.72; margin-left: 6px; }
+.log .you{ color: #0f172a; font-weight: 800; }
     .log .enemy{ color: #7c2d12; font-weight: 800; }
     .log .sys{ color: #1d4ed8; font-weight: 800; }
     .log .win{ color: #166534; font-weight: 900; }
@@ -538,6 +539,8 @@ let running = false;
 let paused = false;
 let abortToken = 0;
 
+let resetting = false; // 連打リセット防止（クローディア指摘）
+
 window.onerror = (msg, src, line, col) => {
   logErr(`JSエラー: ${msg} (${line}:${col})`);
 };
@@ -581,6 +584,9 @@ function buildGrid(){
 }
 
 function resetGame(){
+  if(resetting) return;
+  resetting = true;
+  try{
   abortToken++;
   paused = false;
   btnPause.textContent = "一時停止";
@@ -617,6 +623,9 @@ function resetGame(){
   hudState.textContent = "配置中";
 
   renderBoard();
+  } finally {
+    resetting = false;
+  }
 }
 
 function setPhaseTag(){
@@ -993,7 +1002,7 @@ async function runLoop(token){
       hudAction.textContent = String(actionNo);
       const who = actor.side==="you" ? "あなた" : "相手";
       const role = KIND[actor.kind].label;
-      logLine(`${who} 〔${role}〕の手番`, actor.side==="you" ? "you" : "enemy");
+      logLine(`${who} 〔${role}〕の手番`, `turn ${actor.side==="you" ? "you" : "enemy"}`);
 
       const actRes = await doAutoAction(actor, token);
       movedThisTurn = movedThisTurn || !!actRes?.moved;
