@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Architect Ocean 7×7 - AO_AutoBaseline_v0.2.1-final（Aモード：オート＋配置UI段階化）</title>
+  <title>Architect Ocean 7×7 - AO_ModeSelect_v0.4.0（オート/トレーニング切替）</title>
   <style>
     :root{
       --cell: 56px;
@@ -245,14 +245,21 @@
 <body>
   <h1>
     Architect Ocean 7×7
-    <span class="version-badge">Aモード：オート（介入なし） <span style="opacity:.85">AO_AutoBaseline_v0.2.1-final</span></span>
+    <span class="version-badge">オート/トレーニング切替 <span style="opacity:.85">AO_ModeSelect_v0.4.0</span></span>
   </h1>
 
   <div class="wrap">
     <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div class="muted">
-          ※開始前は「先攻：？」／相手配置は非表示。開始押下で確定します。
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div style="display:grid; gap:6px;">
+          <div class="row" style="margin:0; gap:10px;">
+            <strong style="font-size:13px;">モード</strong>
+            <label><input type="radio" name="modePick" value="auto" checked> オートモード</label>
+            <label><input type="radio" name="modePick" value="training"> トレーニングモード</label>
+          </div>
+          <div class="muted" id="modeHelp">
+            ※オートモード：開始時に相手配置と先攻/後攻がランダム確定します（開始前は相手配置非表示）。
+          </div>
         </div>
         <div class="row" style="margin:0">
           <button id="btnReset" class="danger">リセット</button>
@@ -264,7 +271,7 @@
       <div class="row">
         <div class="tag wait" id="tagPhase">配置：STEP1 司令位置選択中</div>
         <div class="tag wait" id="tagFirst">先攻：？</div>
-        <div class="tag wait" id="tagEnemy">相手配置：？</div>
+        <div class="tag wait" id="tagEnemy">相手配置：表示準備中</div>
       </div>
 
       <div class="row" style="gap:12px; align-items:flex-start;">
@@ -288,6 +295,13 @@
             <div class="selected">
               <div class="muted">選択中</div>
               <div><code id="selCoord">未選択</code></div>
+            </div>
+            <div class="selected" id="firstPickBox" style="display:none;">
+              <div class="muted">先攻/後攻</div>
+              <div>
+                <label style="margin-right:8px;"><input type="radio" name="firstPick" value="you"> 先攻（あなた）</label>
+                <label><input type="radio" name="firstPick" value="enemy"> 後攻（あなた）</label>
+              </div>
             </div>
 
             <div class="row" style="margin:0;">
@@ -314,8 +328,8 @@
     <div class="card">
       <h2 style="margin:0 0 8px; font-size:14px;">操作メモ</h2>
       <div class="muted" style="line-height:1.7;">
-        <div>・開始前：自軍のみ配置。相手駒は表示されません。</div>
-        <div>・開始：相手配置と先攻/後攻が確定し、HUDに表示されます。</div>
+        <div>・オートモード：開始前は自軍のみ配置、相手配置は非表示。開始時に相手配置と先攻/後攻が確定します。</div>
+        <div>・トレーニングモード：開始前に相手配置を表示。先攻/後攻を選び、OKで開始します。</div>
         <div>・ターン（=ラウンド）：交互固定キューを全消化した単位</div>
         <div>・手番（=アクション）：1駒ぶんの行動</div>
         <div>・STEP1の司令3択は、盤面に<strong>丸印</strong>でガイドします。</div>
@@ -352,7 +366,7 @@
 
 <script>
 /* =========================================================
- * Architect Ocean 7×7 - Aモード（オート＋配置UI段階化）
+ * Architect Ocean 7×7 - オート/トレーニング切替
  * v0.2.1準拠
  * ========================================================= */
 
@@ -515,6 +529,10 @@ const btnPause = document.getElementById("btnPause");
 const btnStart = document.getElementById("btnStart");
 const btnDone = document.getElementById("btnDone");
 const btnBack = document.getElementById("btnBack");
+const firstPickRadios = Array.from(document.querySelectorAll('input[name="firstPick"]'));
+const modePickRadios = Array.from(document.querySelectorAll('input[name="modePick"]'));
+const modeHelp = document.getElementById("modeHelp");
+const firstPickBox = document.getElementById("firstPickBox");
 
 const tagPhase = document.getElementById("tagPhase");
 const tagFirst = document.getElementById("tagFirst");
@@ -539,6 +557,9 @@ let selectedCell = null; // {x,y}
 let chosenKPos = null;   // 司令位置（STEP1）
 let placedStack = [];    // STEP2 の置いた履歴（戻る用）
 
+let currentMode = "auto"; // auto | training
+let setupFirstSide = null; // トレーニング開始前に選ぶ先攻側
+let enemyPrepared = false; // 開始前に相手配置をランダム生成済みか
 let firstSide = null;    // 'you' or 'enemy'（開始時確定）
 let turnNo = 0;
 let actionNo = 0;
@@ -573,6 +594,20 @@ function init(){
     logSys("（反応確認）決定ボタンが押されました。");
     try { confirmPlacement(); } catch(e) { logErr("決定処理で例外: " + (e?.message || e)); console.error(e); }
   });
+  firstPickRadios.forEach(r => r.addEventListener("change", ()=>{
+    setupFirstSide = r.checked ? r.value : setupFirstSide;
+    if(setupIndex >= SETUP_ORDER.length && phase === "setup"){
+      btnStart.disabled = !setupFirstSide;
+      tagFirst.textContent = `先攻：${setupFirstSide==="you" ? "あなた" : "相手"}（設定済）`;
+      tagFirst.className = "tag ok";
+      updatePlacingUI();
+    }
+  }));
+  modePickRadios.forEach(r => r.addEventListener("change", ()=>{
+    if(!r.checked) return;
+    currentMode = r.value;
+    resetGame();
+  }));
   btnBack.addEventListener("click", undoPlacement);
 }
 
@@ -610,21 +645,40 @@ function resetGame(){
   turnNo = 0;
   actionNo = 0;
   running = false;
+  setupFirstSide = null;
+  enemyPrepared = false;
+  firstPickRadios.forEach(r=>{ r.checked = false; });
 
+  if(currentMode === "training"){
+    randomizeEnemyPlacement();
+    enemyPrepared = true;
+  }
+
+  btnStart.textContent = (currentMode === "training") ? "OK" : "開始";
   btnStart.disabled = true;
   btnDone.disabled = true;
   btnBack.disabled = true;
 
   tagFirst.textContent = "先攻：？";
-  tagEnemy.textContent = "相手配置：？";
+  if(currentMode === "training"){
+    tagEnemy.textContent = enemyPrepared ? "相手配置：表示中（開始前確認可）" : "相手配置：表示準備中";
+    tagEnemy.className = enemyPrepared ? "tag ok" : "tag wait";
+  }else{
+    tagEnemy.textContent = "相手配置：非表示（開始時に確定）";
+    tagEnemy.className = "tag wait";
+  }
   tagFirst.className = "tag wait";
-  tagEnemy.className = "tag wait";
 
   setPhaseTag();
+  updateModeUI();
   updatePlacingUI();
 
   logEl.textContent = "";
-  logSys("リセットしました。STEP1の司令3択は、下段（最奥列）中央/左/右に丸印で表示されます。");
+  if(currentMode === "training"){
+    logSys("リセットしました（トレーニング）。相手配置を表示しています。STEP1の司令3択は、下段（最奥列）中央/左/右に丸印で表示されます。");
+  }else{
+    logSys("リセットしました（オート）。STEP1の司令3択は、下段（最奥列）中央/左/右に丸印で表示されます。相手配置と先攻/後攻は『開始』時に確定します。");
+  }
   hudTurn.textContent = "-";
   hudAction.textContent = "-";
   hudState.textContent = "配置中";
@@ -635,6 +689,16 @@ function resetGame(){
   }
 }
 
+function updateModeUI(){
+  const isTraining = currentMode === "training";
+  if(modeHelp){
+    modeHelp.textContent = isTraining
+      ? "※トレーニングモード：開始前に相手配置を表示します。自軍配置＋先攻/後攻を決めて「OK」で開始。"
+      : "※オートモード：開始時に相手配置と先攻/後攻がランダム確定します（開始前は相手配置非表示）。";
+  }
+  if(firstPickBox) firstPickBox.style.display = isTraining ? "flex" : "none";
+}
+
 function setPhaseTag(){
   if(phase !== "setup"){
     tagPhase.textContent = "対局中";
@@ -643,7 +707,7 @@ function setPhaseTag(){
   }
 
   if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
-    tagPhase.textContent = "配置：完了（開始できます）";
+    tagPhase.textContent = currentMode==="training" ? "配置：完了（先攻/後攻選択→OK待ち）" : "配置：完了（開始待ち）";
     tagPhase.className = "tag ok";
     return;
   }
@@ -668,10 +732,18 @@ function updatePlacingUI(){
 
   if(setupStep === 2 && setupIndex >= SETUP_ORDER.length){
     placingName.textContent = "配置完了";
-    placingGlyph.textContent = "OK";
-    placingHint.innerHTML = `自軍配置が完了しました。<strong>「開始」</strong>を押すと相手配置と先攻/後攻が確定します。`;
-
-    btnStart.disabled = false;
+    placingGlyph.textContent = currentMode==="training" ? "OK" : "開始";
+    if(currentMode === "training"){
+      placingHint.innerHTML = `自軍配置が完了しました。<strong>先攻/後攻</strong>を選び、<strong>「OK」</strong>でゲーム開始します。`;
+      btnStart.disabled = !setupFirstSide;
+      tagFirst.textContent = setupFirstSide ? `先攻：${setupFirstSide==="you" ? "あなた" : "相手"}（設定済）` : "先攻：未選択";
+      tagFirst.className = setupFirstSide ? "tag ok" : "tag wait";
+    }else{
+      placingHint.innerHTML = `自軍配置が完了しました。<strong>「開始」</strong>を押すと相手配置と先攻/後攻が確定します。`;
+      btnStart.disabled = false;
+      tagFirst.textContent = "先攻：？（開始時にランダム確定）";
+      tagFirst.className = "tag wait";
+    }
     btnDone.disabled = true;
     btnBack.disabled = (placedStack.length === 0);
     return;
@@ -793,9 +865,9 @@ function confirmPlacement(){
   }
 
   if(setupIndex >= SETUP_ORDER.length){
-    logSys("配置は完了しています。『開始』を押してください。");
+    logSys(currentMode==="training" ? "配置は完了しています。先攻/後攻を選んで『OK』を押してください。" : "配置は完了しています。『開始』を押してください。");
     btnDone.disabled = true;
-    btnStart.disabled = false;
+    btnStart.disabled = (currentMode==="training") ? !setupFirstSide : false;
     setPhaseTag();
     updatePlacingUI();
     return;
@@ -810,9 +882,9 @@ function confirmPlacement(){
   clearSelection();
 
   if(setupIndex >= SETUP_ORDER.length){
-    btnStart.disabled = false;
+    btnStart.disabled = (currentMode==="training") ? !setupFirstSide : false;
     btnDone.disabled = true;
-    logSys("自軍配置が完了しました。『開始』を押すと相手配置と先攻/後攻が確定します。");
+    logSys(currentMode==="training" ? "自軍配置が完了しました。先攻/後攻を選んで『OK』を押してください。" : "自軍配置が完了しました。『開始』を押してください。");
     setPhaseTag();
     updatePlacingUI();
     renderBoard();
@@ -857,6 +929,10 @@ function placePiece(side, kind, x, y){
 function startGame(){
   if(phase !== "setup") return;
   if(btnStart.disabled) return;
+  if(currentMode === "training" && !setupFirstSide){
+    logSys("先攻/後攻を選んでからOKを押してください。");
+    return;
+  }
 
   abortToken++;
   const token = abortToken;
@@ -869,15 +945,31 @@ function startGame(){
   hudState.textContent = "対局中";
   document.getElementById("placePanel").style.display = "none";
 
-  firstSide = (Math.random() < 0.5) ? "you" : "enemy";
-  tagFirst.textContent = `先攻：${firstSide==="you" ? "あなた" : "相手"}`;
-  tagFirst.className = "tag ok";
+  if(currentMode === "training"){
+    if(!enemyPrepared){
+      randomizeEnemyPlacement();
+      enemyPrepared = true;
+    }
+    firstSide = setupFirstSide;
+    tagFirst.textContent = `先攻：${firstSide==="you" ? "あなた" : "相手"}`;
+    tagFirst.className = "tag ok";
 
-  randomizeEnemyPlacement();
-  tagEnemy.textContent = "相手配置：確定";
-  tagEnemy.className = "tag ok";
+    tagEnemy.textContent = "相手配置：表示済み（確定）";
+    tagEnemy.className = "tag ok";
 
-  logSys("『開始』が押されました：相手配置と先攻/後攻がこのタイミングで確定しました。");
+    logSys("『OK』が押されました：設定済みの相手配置・先攻/後攻でゲームを開始します。");
+  }else{
+    firstSide = (Math.random() < 0.5) ? "you" : "enemy";
+    tagFirst.textContent = `先攻：${firstSide==="you" ? "あなた" : "相手"}`;
+    tagFirst.className = "tag ok";
+
+    randomizeEnemyPlacement();
+    enemyPrepared = true;
+    tagEnemy.textContent = "相手配置：開始時に確定（表示中）";
+    tagEnemy.className = "tag ok";
+
+    logSys("『開始』が押されました：相手配置と先攻/後攻がこのタイミングで確定しました。");
+  }
   renderBoard();
 
   btnStart.disabled = true;
@@ -944,12 +1036,9 @@ function renderBoard(){
       cell.classList.remove("opt-k");
 
       const row = grid[y] || []; const p = row[x] || null;
+      const hiddenEnemyDuringAutoSetup = (currentMode==="auto" && phase==="setup" && p && p.side==="enemy");
 
-      if(phase === "setup" && p && p.side === "enemy"){
-        cell.textContent = "";
-        cell.title = "";
-        cell.classList.remove("p-enemy","p-you");
-      }else if(!p){
+      if(!p || hiddenEnemyDuringAutoSetup){
         cell.textContent = "";
         cell.title = "";
         cell.classList.remove("p-enemy","p-you");
